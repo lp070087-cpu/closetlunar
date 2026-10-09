@@ -1,0 +1,218 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Tokens visuais da Closet Lunna.
+ *
+ * Valores medidos nos prints do painel admin (fase 1) e confirmados no design
+ * system do projeto de referencia. Formato HSL (triplas separadas por espaco)
+ * para que o Tailwind possa compor variacoes de opacidade.
+ */
+@layer base {
+  :root {
+    /* Geometria */
+    --radius: 0.75rem;
+
+    /* Superficies */
+    --canvas: 30 43% 93%; /* #F7EDE2 - fundo do painel */
+    --background: 0 0% 100%; /* #FFFFFF - sidebar, topbar e cards */
+    --card: 0 0% 100%;
+    --card-foreground: 27 20% 7%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 27 20% 7%;
+
+    /* Tinta */
+    --foreground: 27 20% 7%; /* #14110E - preto do sistema */
+    --muted: 34 25% 96%;
+    --muted-foreground: 25 7% 40%; /* #69625D - cinza dos rotulos */
+
+    /* Marca e acao */
+    --primary: 27 20% 7%;
+    --primary-foreground: 34 40% 98%;
+    --secondary: 33 30% 95%;
+    --secondary-foreground: 27 20% 7%;
+    /*
+      ================== O PLACEHOLDER DOS CAMPOS ==================
+
+      Este token NAO vem do original — o projeto de referencia nao declara
+      `::placeholder` em lugar nenhum (conferido: nenhum `.css` de la escreve a
+      pseudo-classe), e por isso o navegador usa o proprio padrao.
+
+      Mas o print `cli-017` mostra o placeholder do telefone numa tinta que NAO
+      e o padrao do Chrome: o padrao e o texto em `color` com opacidade, o que
+      sobre o branco puro do campo daria por volta de (117,117,117), e a MEDIDA
+      do print da (137,135,134) na tinta mais escura do glifo — um cinza NEUTRO,
+      mais claro que o `--muted-foreground` (105,98,93) dos rotulos.
+
+      O valor abaixo e o que o print mede. Ele existe porque a tinta do
+      placeholder e uma tinta como qualquer outra desta area, e deixar o
+      navegador escolher seria a unica cor da tela que ninguem decidiu.
+    */
+    --placeholder: 0 0% 54%; /* #8A8A8A — medido em `cli-017` */
+    --accent: 18 45% 78%; /* rosa champanhe do design system */
+    --accent-foreground: 27 20% 7%;
+    --gold: 40 62% 66%;
+    --rose: 20 40% 85%;
+    --champagne: 38 45% 90%;
+
+    /* Estados */
+    --success: 162 100% 37%; /* #00BC7D */
+    --success-foreground: 165 100% 24%; /* #007A55 */
+    --success-surface: 155 91% 90%; /* #D0FAE5 */
+    --warning: 42 90% 48%;
+    --warning-foreground: 35 92% 33%;
+    --warning-surface: 45 96% 89%; /* #FEF3C6 */
+    --danger: 358 71% 54%; /* #DE3C36 */
+    --danger-foreground: 347 77% 30%;
+    --danger-surface: 356 100% 95%; /* #FFE4E6 */
+    --destructive: 358 71% 54%;
+    --destructive-foreground: 34 40% 98%;
+    /*
+     * `info` — a caixa AZUL de aviso.
+     *
+     * Nao existia token para o azul, e ele aparece no material: a caixa
+     * "Recomendamos o uso de imagens PNG com fundo transparente..." (adm-039) e
+     * azul-clara no print, com o icone laranja. Ciano nao serve (e o azul do
+     * ciano e verde), `warning` e ambar e `accent` e rosa — nenhum dos tres
+     * reproduz o material.
+     *
+     * Cor medida no print: fundo ~#EAF2FB, texto ~#3B4A5A, borda ~#CFE0F5. Ela e
+     * REGISTRADA como padrao do painel (e nao escrita solta num componente) para
+     * as outras telas de conteudo usarem a mesma caixa em vez de inventarem a
+     * propria.
+     */
+    --info: 213 62% 95%;
+    --info-foreground: 213 28% 30%;
+    --info-surface: 213 62% 95%;
+    --info-border: 213 55% 88%;
+
+    /* Linhas */
+    --border: 30 20% 89%;
+    --input: 30 20% 87%;
+    --ring: 18 45% 78%;
+
+    /* Elevacao */
+    --shadow-card: 0 1px 2px 0 rgb(20 17 14 / 0.04), 0 8px 24px -12px rgb(20 17 14 / 0.06);
+    --shadow-soft: 0 4px 24px -8px rgb(20 17 14 / 0.08);
+    --shadow-elegant: 0 20px 60px -20px rgb(20 17 14 / 0.18);
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  html {
+    overflow-x: hidden;
+  }
+
+  body {
+    background-color: hsl(var(--canvas));
+    color: hsl(var(--foreground));
+    font-family: var(--font-sans), Inter, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Titulos e numeros do painel sao serifados; o resto e sans. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-serif), 'Cormorant Garamond', Georgia, serif;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+  }
+
+  /* Alvo de toque minimo no mobile, sem zoom automatico do iOS. */
+  @media (max-width: 640px) {
+    input:not([type='checkbox']):not([type='radio']),
+    select,
+    textarea {
+      font-size: 16px;
+      min-height: 44px;
+    }
+  }
+
+  /* Barra de rolagem discreta nas areas do painel. */
+  .scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer components {
+  /*
+   * Rotulo de campo e de card: caixa alta, minusculo, muito espacado.
+   * Repetido em praticamente todas as telas dos prints.
+   */
+  .label-caps {
+    @apply text-label font-bold uppercase tracking-[0.16em] text-muted-foreground/70;
+  }
+
+  .eyebrow-caps {
+    @apply text-eyebrow font-bold uppercase tracking-[0.25em] text-muted-foreground/60;
+  }
+
+  /* Superficie padrao de card do painel. */
+  .surface {
+    @apply rounded-3xl border border-border/60 bg-card shadow-card;
+  }
+
+  .surface-flat {
+    @apply rounded-2xl border border-border/70 bg-card shadow-card;
+  }
+
+  /* Foco visivel e consistente em toda a aplicacao. */
+  .focus-ring {
+    @apply outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+}
+
+/* Impede que tabelas e grids estourem a viewport em telas pequenas. */
+@layer utilities {
+  .table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background-color: hsl(var(--muted));
+  }
+  .skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      rgb(255 255 255 / 0.6),
+      transparent
+    );
+    animation: shimmer 1.6s infinite;
+  }
+
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  /* Respeita quem pediu menos movimento no sistema operacional. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

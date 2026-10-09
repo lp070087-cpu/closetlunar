@@ -1,0 +1,253 @@
+/*
+ * CSS da apresentacao do sistema — ISOLADO.
+ *
+ * REGRA DE ISOLAMENTO (por que nao tem Tailwind `prefix`):
+ * o prefixo do Tailwind renomeia as classes GERADAS, nao as classes escritas no
+ * codigo. Ligar `prefix: 'pre'` quebraria o painel inteiro, porque todo
+ * componente ja escreve `bg-canvas`, `rounded-3xl` e etc. Entao o isolamento
+ * aqui e feito de outra forma, mais segura:
+ *
+ *   1. todo seletor comeca por `.ap-root`, entao nada vaza para o Admin;
+ *   2. toda keyframe tem nome proprio (`ap-*`), sem colidir com `fade-up`,
+ *      `shimmer` e `scale-in` do design system;
+ *   3. nada aqui redefine `body`, `*` ou as tags `h1..h3` — essas continuam
+ *      sendo as do painel.
+ *
+ * Tokens de tempo iguais aos da referencia tecnica (0.6s / 0.3s / 0.15s com
+ * cubic-bezier(0.4, 0, 0.2, 1)), que e o que da a sensacao de fluidez sem
+ * parecer lento. Diferente da referencia, aqui `prefers-reduced-motion` E
+ * respeitado — quem pede menos movimento recebe o conteudo estatico.
+ */
+
+.ap-root {
+  --ap-fast: 0.15s ease-in-out;
+  --ap-medium: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --ap-slow: 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  --ap-reveal: 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+
+  background-color: hsl(var(--canvas));
+  color: hsl(var(--foreground));
+  /* A apresentacao e uma pagina propria: nao herda largura do painel. */
+  width: 100%;
+  overflow-x: clip;
+}
+
+/* ---------------------------------------------------------------------------
+ * Revelacao no scroll
+ * ------------------------------------------------------------------------ */
+
+.ap-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity var(--ap-reveal),
+    transform var(--ap-reveal);
+  transition-delay: var(--ap-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.ap-reveal[data-visible='true'] {
+  opacity: 1;
+  transform: none;
+}
+
+/* Variacoes de direcao, para nao repetir sempre o mesmo movimento. */
+.ap-reveal--left {
+  transform: translateX(-28px);
+}
+.ap-reveal--right {
+  transform: translateX(28px);
+}
+.ap-reveal--scale {
+  transform: scale(0.96);
+}
+
+/* ---------------------------------------------------------------------------
+ * Entrada do hero
+ * ------------------------------------------------------------------------ */
+
+@keyframes ap-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ap-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(2%, -3%, 0) scale(1.06);
+  }
+}
+
+@keyframes ap-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes ap-caret {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.ap-rise {
+  animation: ap-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--ap-delay, 0ms);
+}
+
+/* Halo suave do hero: movimento muito lento, so para dar profundidade. */
+.ap-halo {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(70px);
+  opacity: 0.55;
+  animation: ap-drift 26s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+
+.ap-halo--slow {
+  animation-duration: 34s;
+  animation-direction: reverse;
+}
+
+/* Textura discreta de linhas, aplicada como camada de fundo. */
+.ap-grid {
+  background-image:
+    linear-gradient(to right, hsl(var(--foreground) / 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--foreground) / 0.045) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+.ap-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: ap-marquee 42s linear infinite;
+}
+
+.ap-caret {
+  display: inline-block;
+  width: 0.5ch;
+  animation: ap-caret 1.1s steps(1) infinite;
+}
+
+/* ---------------------------------------------------------------------------
+ * Cartoes
+ * ------------------------------------------------------------------------ */
+
+.ap-card {
+  transition:
+    transform var(--ap-medium),
+    box-shadow var(--ap-medium),
+    border-color var(--ap-medium);
+}
+
+/* Elevacao so em quem tem mouse: no toque o hover "gruda". */
+@media (hover: hover) {
+  .ap-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-elegant);
+  }
+
+  .ap-lift:hover {
+    transform: scale(1.015);
+  }
+}
+
+.ap-lift {
+  transition: transform var(--ap-medium);
+}
+
+/* ---------------------------------------------------------------------------
+ * Faixa de destaque com deslocamento interno
+ * ------------------------------------------------------------------------ */
+
+.ap-band {
+  background-image: linear-gradient(
+    120deg,
+    hsl(var(--foreground)) 0%,
+    hsl(var(--foreground)) 55%,
+    hsl(var(--accent)) 160%
+  );
+}
+
+/* ---------------------------------------------------------------------------
+ * Mockup de tela
+ * ------------------------------------------------------------------------ */
+
+/*
+ * O mockup NAO e uma imagem: e a interface real renderizada e reduzida por
+ * escala. `transform` nao ocupa espaco, entao a moldura precisa de altura
+ * explicita — que vem do proprio conteudo via `--ap-screen-h`.
+ */
+.ap-screen {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 1rem;
+  background-color: hsl(var(--background));
+}
+
+.ap-screen-inner {
+  width: 1280px;
+  transform: scale(var(--ap-scale, 0.55));
+  transform-origin: top left;
+  transition: transform var(--ap-slow);
+}
+
+.ap-screen-shell {
+  height: calc(var(--ap-screen-h, 620px) * var(--ap-scale, 0.55));
+}
+
+@media (hover: hover) {
+  .ap-screen-wrap:hover .ap-screen-inner {
+    transform: scale(calc(var(--ap-scale, 0.55) * 1.02));
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Acessibilidade
+ * ------------------------------------------------------------------------ */
+
+.ap-skip {
+  position: absolute;
+  left: 1rem;
+  top: -100px;
+  z-index: 60;
+  transition: top var(--ap-fast);
+}
+.ap-skip:focus {
+  top: 1rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ap-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .ap-rise,
+  .ap-halo,
+  .ap-marquee-track,
+  .ap-caret {
+    animation: none !important;
+  }
+  .ap-screen-inner {
+    transition: none;
+  }
+}

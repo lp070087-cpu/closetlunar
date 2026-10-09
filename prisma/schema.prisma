@@ -1,0 +1,787 @@
+// =============================================================================
+// Closet Lunna — schema do banco (Fase 4)
+// =============================================================================
+//
+// DERIVADO DOS TIPOS QUE JA EXISTEM. Cada `model` abaixo corresponde a um
+// `interface` de `src/lib/<dominio>/types.ts`, e cada campo a um campo desses
+// tipos. Nao ha campo que nenhuma tela leia: um campo que ninguem mostra seria
+// um dado que ninguem sabe preencher.
+//
+// A UNIFICACAO — uma entidade, uma tabela — esta em `BACKEND-MAP.md`. As duas
+// duplicacoes que ja existem NO TYPESCRIPT estao resolvidas aqui:
+//
+//   `produtos.Category` e `categorias.Category`  ->  uma tabela `categories`
+//   `whatsapp.Ticket` e `atendimento.Ticket`     ->  uma tabela `tickets`
+//
+// O QUE NAO VIRA TABELA (e por que): contadores e agregados. `StockStats`,
+// `CartStats`, `TicketCounts`, `productCount`, `totalStock` — todos sao contas
+// sobre linhas que existem. Gravar um contador cria a chance de ele divergir da
+// contagem real, e a Fase 1 ja decidiu isso do lado da tela (o `productCount` e
+// contado na leitura, "NAO e um campo gravado").
+//
+// ============================ BLOQUEADO POR CREDENCIAL NEON ============================
+//
+// NAO HA `DATABASE_URL`. O `env("DATABASE_URL")` abaixo resolvera quando a
+// credencial existir; ate la `prisma migrate dev` e `prisma generate` NAO rodam,
+// e o schema serve como CONTRATO (o artefato que a credencial vai ativar).
+//
+// Nada foi inventado: nao ha URL, senha nem token neste arquivo. O
+// `env()` e referencia, e nao valor.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Conexao direta (sem pooler) para as migrations. Ver `.env.example`.
+  directUrl = env("DIRECT_URL")
+}
+
+// =============================================================================
+// ENUMS — os valores sao LITERAIS dos `type X = ...` do TypeScript
+// =============================================================================
+//
+// Um enum aqui com valor que o TypeScript nao tem (ou sem um que ele tem) e o
+// defeito silencioso: o TypeScript passa e o banco recusa no dia da escrita. A
+// bancada confere os dois lados, literal por literal.
+//
+// `UserRole` NAO esta aqui: no TypeScript ele e `string`, e nao uma uniao
+// fechada. Fechar no banco um vocabulario que o codigo deixa aberto seria
+// inventar uma restricao que ninguem decidiu.
+
+enum ProductStatus {
+  active
+  draft
+  archived
+}
+
+enum CouponKind {
+  percent
+  fixed
+}
+
+enum CouponApplyTo {
+  all
+  products
+  categories
+}
+
+enum CampaignType {
+  discount_automatic
+  free_shipping
+  category_sale
+  first_purchase
+  vip
+  anniversary
+}
+
+enum CampaignDiscountType {
+  percentage
+  fixed
+}
+
+enum CartStatus {
+  pendente
+  recuperado
+  perdido
+}
+
+enum CommissionType {
+  percentage
+  fixed
+}
+
+enum AffiliateStatus {
+  active
+  suspended
+}
+
+enum MovementType {
+  entrada
+  saida
+  venda
+  reposicao
+  devolucao
+  ajuste
+}
+
+enum LoyaltyMovementType {
+  earn
+  redeem
+}
+
+enum OrderStatus {
+  novo
+  pago
+  separacao
+  enviado
+  entregue
+  cancelado
+}
+
+enum ShippingStatus {
+  aguardando_postagem
+  postado
+  em_transito
+  saiu_para_entrega
+  entregue
+  extraviado
+  devolvido
+}
+
+enum PaymentMethod {
+  pix
+  cartao
+  boleto
+}
+
+enum ShippingKind {
+  propria
+  transportadora
+}
+
+enum TicketStatus {
+  novo
+  em_atendimento
+  aguardando_cliente
+  finalizado
+}
+
+enum TicketOrigin {
+  product_whatsapp
+  shipping_quote
+  abandoned_cart
+  checkout_help
+  contact_form
+  virtual_tryon
+  favorites
+}
+
+enum SiteSectionKind {
+  best_sellers
+  latest
+  featured
+  category
+  promo
+  custom
+}
+
+// =============================================================================
+// CATALOGO
+// =============================================================================
+
+/// `categorias.Category` — a versao completa. `produtos.Category` (o subconjunto
+/// `{id, name, slug}`) e uma PROJECAO desta tabela, e nao outra entidade.
+model Category {
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  /// `CategoryImage` — recortada em circulo. `null` = sem imagem (a tela mostra a inicial).
+  imageUrl    String?
+  imageAlt    String?
+  /// Ordem de exibicao na loja. Empate desempatado pelo nome.
+  sortOrder   Int     @default(0)
+  /// `false` = nao aparece na loja. Nasceu do print adm-030/031 (`Atacado` INATIVO).
+  isActive    Boolean @default(true)
+  /// SEO por categoria.
+  metaTitle       String @default("")
+  metaDescription String @default("")
+  /// Texto de introducao, quando a referencia usar.
+  introText       String @default("")
+
+  products    Product[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+}
+
+model Product {
+  id          String        @id @default(cuid())
+  name        String
+  slug        String        @unique
+  description String        @default("")
+
+  /// `""` = "— Sem categoria —", como no TypeScript. `null` no banco, e nao `""`:
+  /// a ausencia e a ausencia, e o `""` e um valor que ninguem digitou.
+  categoryId  String?
+  category    Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  /// Preco que a cliente paga, em reais.
+  price          Decimal  @db.Decimal(10, 2)
+  /// Quanto a loja pagou. Label em vermelho no formulario.
+  costPrice      Decimal  @db.Decimal(10, 2) @default(0)
+  /// Preco promocional opcional.
+  promoPrice     Decimal? @db.Decimal(10, 2)
+  /// Preco antigo, para exibir riscado.
+  compareAtPrice Decimal? @db.Decimal(10, 2)
+
+  /// Estoque geral — usado quando a cor nao tem estoque proprio.
+  stock       Int           @default(0)
+  /// `["P","M","G"]`. Lista de strings, e nao uma tabela: o pedido guarda o
+  /// tamanho VENDIDO (`OrderItem.size`), e nao um ponteiro para o que existe hoje.
+  sizes       String[]
+  status      ProductStatus @default(draft)
+  /// Destaque na vitrine (`Best Seller`).
+  featured    Boolean       @default(false)
+
+  images      ProductImage[]
+  colors      ProductColor[]
+  movements   StockMovement[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status, featured])
+  @@index([categoryId])
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// URL publica. Hoje `data:`/`/site/*`; amanha a URL do storage.
+  url       String
+  alt       String  @default("")
+  /// Ordem na galeria. A primeira e a capa.
+  sortOrder Int     @default(0)
+
+  @@index([productId, sortOrder])
+}
+
+model ProductColor {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name      String
+  /// Hex para o seletor de cor, ex.: `#E8D5C4`.
+  hex       String
+  /// Estoque proprio da cor. `null` = usar o estoque geral do produto.
+  stock     Int?
+  sortOrder Int      @default(0)
+
+  images    ProductColorImage[]
+
+  @@index([productId])
+}
+
+/// As fotos de UMA cor (`ProductColor.images`). Separada de `ProductImage`
+/// porque o tipo tem os dois: a galeria geral do produto e a galeria por cor.
+model ProductColorImage {
+  id        String       @id @default(cuid())
+  colorId   String
+  color     ProductColor @relation(fields: [colorId], references: [id], onDelete: Cascade)
+  url       String
+  alt       String       @default("")
+  sortOrder Int          @default(0)
+
+  @@index([colorId, sortOrder])
+}
+
+/// `estoque.StockMovement` — a linha do historico de estoque.
+model StockMovement {
+  id          String       @id @default(cuid())
+  at          DateTime     @default(now())
+  productId   String
+  /// Nome copiado no movimento: o historico registra o que foi movimentado,
+  /// mesmo que a peca mude de nome depois.
+  productName String
+  colorName   String?
+  sizeLabel   String?
+  /// `+3` / `-3` — o glifo. Guardado como sinal, e a tela desenha o sinal.
+  delta       Int
+  type        MovementType
+  responsible String
+
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([productId, at])
+  @@index([at])
+}
+
+// =============================================================================
+// VENDAS
+// =============================================================================
+
+model Coupon {
+  id       String        @id @default(cuid())
+  /// Texto do cupom. SEMPRE maiusculo — o original faz `.toUpperCase()` ao salvar.
+  code     String        @unique
+  /// Nome interno da campanha. Nao aparece na loja.
+  name     String        @default("")
+  kind     CouponKind
+  /// O desconto COMO DIGITADO (`10` = 10%). Nao e fracao: ver o tipo.
+  value    Decimal       @db.Decimal(10, 2)
+  /// Pedido minimo. `0` = sem minimo.
+  minSubtotal Decimal    @db.Decimal(10, 2) @default(0)
+  /// Teto de usos. `null` = ILIMITADO. Nao confundir com `0`.
+  maxUses  Int?
+  /// ISO. `null` = comeca agora.
+  startsAt DateTime?
+  /// ISO. `null` = sem validade.
+  expiresAt DateTime?
+  isActive Boolean       @default(true)
+  campaignId String?
+  campaign Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  /// Quantas vezes o MESMO cliente pode usar. `1` e o padrao do original.
+  usageLimitPerUser Int  @default(1)
+  applyTo  CouponApplyTo @default(all)
+  /// Ids de produtos ou categorias, quando `applyTo` nao for `all`.
+  applicableIds String[]
+  description   String   @default("")
+  /// Ja usado. NAO e editavel: quem escreve e o checkout, ao aplicar o cupom.
+  usesCount     Int      @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([isActive])
+}
+
+model Campaign {
+  id            String               @id @default(cuid())
+  name          String
+  description   String               @default("")
+  type          CampaignType
+  discountType  CampaignDiscountType
+  discountValue Decimal              @db.Decimal(10, 2) @default(0)
+  minOrderValue Decimal              @db.Decimal(10, 2) @default(0)
+  badgeText     String               @default("")
+  startsAt      DateTime
+  expiresAt     DateTime?
+  isActive      Boolean              @default(true)
+  bannerUrl       String            @default("")
+  bannerUrlMobile String            @default("")
+  targetIds     String[]
+  /// `Record<string, string>` livre — regras que a tela edita como pares.
+  rules         Json                 @default("{}")
+
+  coupons       Coupon[]
+
+  createdAt     DateTime @default(now())
+
+  @@index([isActive])
+}
+
+/// O PEDIDO. Os quatro blocos do TypeScript (`OrderCustomer`, `OrderPayment`,
+/// `OrderShipping` e `ShippingAddress`) viram COLUNAS aqui, e nao tabelas: o
+/// pedido e o dono deles, e eles nao existem fora dele. `OrderItem` e tabela
+/// porque sao N itens.
+model Order {
+  id   String @id @default(cuid())
+  /// O codigo curto que a tela mostra (`#A1B2C3D4`).
+  code String @unique
+
+  // --- OrderCustomer -------------------------------------------------------
+  customerName  String
+  customerPhone String
+  customerEmail String?
+
+  // --- OrderPayment --------------------------------------------------------
+  paymentMethod String  @db.VarChar(20)
+  shippingPrice Decimal @db.Decimal(10, 2) @default(0)
+  discount      Decimal @db.Decimal(10, 2) @default(0)
+  couponCode    String?
+  subtotal      Decimal @db.Decimal(10, 2)
+  total         Decimal @db.Decimal(10, 2)
+
+  /// O ESTADO NEUTRO do pagamento (`EstadoPagamento` em `lib/pagamento`).
+  ///
+  /// Neutro de proposito: `pendente` / `processando` / `pago` / `recusado` sao os
+  /// quatro que QUALQUER gateway tem. Um estado com o vocabulario de um provider
+  /// seria acoplamento disfarcado — e o gateway ainda sera escolhido.
+  ///
+  /// Nasce `pendente`, que e o unico estado honesto enquanto nao ha gateway.
+  paymentStatus String @default("pendente") @db.VarChar(20)
+
+  /// A REFERENCIA EXTERNA do gateway — e GENERICA de proposito.
+  ///
+  /// Nao e `mercadoPagoPreferenceId` nem `stripePaymentIntentId`: um nome de
+  /// provider obrigaria a mexer no pedido quando a escolha sair, e mexer no
+  /// pedido depois de ele ter linhas e a pior hora. `null` hoje, porque nao ha
+  /// cobranca criada.
+  paymentExternalId String?
+
+  // --- OrderShipping -------------------------------------------------------
+  shippingKind     String?       @db.VarChar(20)
+  carrier          String?
+  trackingCode     String?
+  shippingStatus   ShippingStatus?
+  shipmentMethod   String?
+
+  // --- ShippingAddress -----------------------------------------------------
+  addressZip        String  @default("")
+  addressStreet     String  @default("")
+  addressNumber     String  @default("")
+  addressComplement String  @default("")
+  addressDistrict   String  @default("")
+  addressCity       String  @default("")
+  addressState      String  @default("")
+
+  status    OrderStatus
+  placedAt  DateTime      @default(now())
+  /// De quem e o pedido. `null` = compra sem login (o checkout publico).
+  userId    String?
+  user      User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  items     OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, placedAt])
+  @@index([userId])
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  /// `null` = a peca saiu do catalogo depois. O pedido guarda o NOME dela.
+  productId   String?
+  productName String
+  /// O tamanho e a cor VENDIDOS. `Unico` e um valor de verdade, e nao `null`
+  /// com a tela inventando o texto (ver o tipo).
+  size        String
+  color       String
+  quantity    Int
+  unitPrice   Decimal @db.Decimal(10, 2)
+
+  @@index([orderId])
+}
+
+/// `carrinho-abandonado.AbandonedCart`.
+model AbandonedCart {
+  id                String     @id @default(cuid())
+  contactName       String?
+  contactEmail      String?
+  subtotal          Decimal    @db.Decimal(10, 2)
+  notificationCount Int        @default(0)
+  lastNotifiedAt    DateTime?
+  /// A ORDEM das linhas do print e por data decrescente; o campo existe por isso.
+  createdAt         DateTime   @default(now())
+  status            CartStatus @default(pendente)
+  recoveryValue     Decimal?   @db.Decimal(10, 2)
+
+  @@index([createdAt])
+  @@index([status])
+}
+
+/// `afiliadas.Affiliate`.
+model Affiliate {
+  id              String          @id @default(cuid())
+  name            String
+  email           String          @unique
+  couponCode      String          @unique
+  referralSlug    String          @unique
+  commissionType  CommissionType
+  commissionValue Decimal         @db.Decimal(10, 2)
+  status          AffiliateStatus @default(active)
+  /// A coluna e `jsonb` livre no original: nenhum print mostra o conteudo, e
+  /// desenhar os campos bancarios seria inventar um formulario. Ele e PRESERVADO.
+  bankInfo        Json?
+  /// A MESMA pessoa do login, quando houver. `null` = afiliada sem conta.
+  userId          String?         @unique
+  user            User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  sales           AffiliateSale[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+/// A VENDA de uma afiliada — o que a tela da cliente lista no historico.
+/// Nasce da leitura do admin (`lib/afiliadas`), que ja tem o conceito.
+model AffiliateSale {
+  id               String    @id @default(cuid())
+  affiliateId      String
+  affiliate        Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  orderId          String
+  status           String    @db.VarChar(20)
+  commissionAmount Decimal   @db.Decimal(10, 2)
+  createdAt        DateTime  @default(now())
+
+  @@index([affiliateId, createdAt])
+}
+
+/// `fidelidade.LoyaltyMovement` — o extrato de pontos.
+model LoyaltyMovement {
+  id            String              @id @default(cuid())
+  customerEmail String
+  createdAt     DateTime            @default(now())
+  description   String              @default("")
+  type          LoyaltyMovementType
+  /// Positivo em `earn`, negativo em `redeem` (o sinal e o glifo da tela).
+  points        Int
+
+  @@index([customerEmail, createdAt])
+}
+
+model LoyaltyReward {
+  id          String  @id @default(cuid())
+  title       String
+  description String  @default("")
+  /// Custo em pontos.
+  pointsCost  Int
+  sortOrder   Int     @default(0)
+  isActive    Boolean @default(true)
+
+  @@index([isActive, sortOrder])
+}
+
+// =============================================================================
+// CONTEUDO DO SITE — a configuracao que o painel edita
+// =============================================================================
+
+model HeroSlide {
+  id              String  @id @default(cuid())
+  title           String
+  eyebrow         String  @default("")
+  subtitle        String  @default("")
+  linkUrl         String  @default("")
+  ctaText         String  @default("")
+  imageDesktopUrl String?
+  imageMobileUrl  String?
+  sortOrder       Int     @default(0)
+  isActive        Boolean @default(true)
+
+  @@index([isActive, sortOrder])
+}
+
+model HomeSection {
+  id        String          @id @default(cuid())
+  title     String
+  kind      SiteSectionKind
+  source    String          @default("")
+  /// `N itens` — numero de CONFIGURACAO (a secao mostra "os N primeiros").
+  itemCount Int             @default(8)
+  sortOrder Int             @default(0)
+  isActive  Boolean         @default(true)
+
+  @@index([isActive, sortOrder])
+}
+
+model PromoBanner {
+  id        String  @id @default(cuid())
+  title     String
+  subtitle  String  @default("")
+  imageUrl  String?
+  linkUrl   String  @default("")
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+}
+
+model Benefit {
+  id          String  @id @default(cuid())
+  /// O NOME do icone do lucide (`Truck`, `CreditCard`, ...), e nao um SVG.
+  iconName    String
+  title       String
+  description String  @default("")
+  sortOrder   Int     @default(0)
+  isActive    Boolean @default(true)
+}
+
+model Look {
+  id          String      @id @default(cuid())
+  name        String
+  subtitle    String      @default("")
+  description String      @default("")
+  coverUrl    String?
+  sortOrder   Int         @default(0)
+  isActive    Boolean     @default(true)
+  pieces      LookPiece[]
+
+  @@index([isActive, sortOrder])
+}
+
+model LookPiece {
+  id        String @id @default(cuid())
+  lookId    String
+  look      Look   @relation(fields: [lookId], references: [id], onDelete: Cascade)
+  productId String
+  sortOrder Int    @default(0)
+
+  @@index([lookId, sortOrder])
+}
+
+model StoreTheme {
+  id        String  @id @default(cuid())
+  name      String
+  /// As tres cores da paleta. Guardadas como texto; a tela as usa em `style`.
+  colorA    String  @default("")
+  colorB    String  @default("")
+  colorC    String  @default("")
+  gradientFrom String @default("")
+  gradientTo   String @default("")
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+}
+
+/// A CONFIGURACAO GLOBAL em chave/valor.
+///
+/// `site_settings` guarda o instagram, o rodape, a config de SEO, os custos
+/// financeiros e o checklist da loja — todos objetos que a tela edita como um
+/// todo e nenhuma consulta filtra por campo. Uma tabela por objeto daria uma
+/// coluna por campo para um dado que so e lido inteiro.
+///
+/// O indice UNICO em `key` NAO e detalhe: sem ele, dois salvamentos
+/// simultaneos criam duas linhas e a proxima leitura pega uma delas.
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+// =============================================================================
+// PESSOAS E ATENDIMENTO
+// =============================================================================
+
+/// O USUARIO — a conta que loga. Serve as TRES areas: o painel (papel admin) e
+/// a area da cliente (papel cliente). Nao ha um segundo sistema para a cliente.
+///
+/// A SENHA: `passwordHash` guarda o HASH, e nao a senha. Nenhum tipo de dominio
+/// transporta senha (regra herdada do modulo `Seguranca` da Fase 2). A coluna e
+/// `nullable` porque a cliente que nasce de um pedido sem cadastro ainda nao tem
+/// senha — `null` = "ainda nao tem como entrar", e nao senha vazia.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String   @default("")
+  phone        String   @default("")
+  /// HASH (bcrypt/argon2). NUNCA texto puro. `null` = sem senha definida.
+  passwordHash String?
+  /// O papel. `string` no TypeScript, e nao um enum fechado — ver a nota dos enums.
+  role         String   @default("cliente")
+  isActive     Boolean  @default(true)
+
+  orders       Order[]
+  affiliate    Affiliate?
+  sessions     UserSession[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([role])
+}
+
+/// `last_sign_in_at` era do `auth.users` do Supabase. Sem provedor de auth, o
+/// registro do ultimo acesso passa a ser NOSSO — e a Fase 2 ja tinha marcado
+/// essa pendencia ("o `Último Login` vem de `auth.users.last_sign_in_at`, e NAO
+/// de um relogio da aplicacao").
+model UserSession {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// O hash do token da sessao — o token em si so existe no cookie da cliente.
+  tokenHash String   @unique
+  userAgent String   @default("")
+  ip        String   @default("")
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  @@index([userId])
+}
+
+/// A tabela `tickets` — as duas telas (`whatsapp` e `atendimento`) projetam as
+/// colunas que usam. Ver `BACKEND-MAP.md`.
+model Ticket {
+  id            String        @id @default(cuid())
+  customerName  String
+  /// O telefone como a LOJA o guarda. A mascara fica na formatacao, nao no dado.
+  customerPhone String        @default("")
+  /// A mensagem inteira. A linha da lista corta; o modal mostra tudo.
+  message       String        @default("")
+  status        TicketStatus  @default(novo)
+  origin        TicketOrigin?
+  /// O produto relacionado, quando houver.
+  productId     String?
+  productName   String?
+  productSlug   String?
+  productImage  String?
+  productPrice  Decimal?      @db.Decimal(10, 2)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status, createdAt])
+}
+
+/// `crm.CrmLead`.
+model CrmLead {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  whatsapp  String?
+  source    String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// `busca.SearchTermRow` — o termo buscado, para a tela de Busca do admin.
+model SearchTerm {
+  id           String   @id @default(cuid())
+  term         String
+  normalized   String?
+  resultsCount Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// =============================================================================
+// COMUNICACAO E AUDITORIA
+// =============================================================================
+
+model EmailTemplate {
+  /// O `TemplateSlug` e o id — o template e identificado pelo slug, e nao por um
+  /// id gerado: a tela o endereca por slug.
+  id        String   @id
+  title     String
+  subject   String
+  bodyHtml  String
+  active    Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+}
+
+model EmailLog {
+  id           String   @id @default(cuid())
+  email        String
+  templateName String
+  sentAt       DateTime @default(now())
+
+  @@index([sentAt])
+}
+
+/// `seguranca.AuditLogRow`.
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  /// Quem fez. `null` = acao do sistema. A tela do print mostra so a acao.
+  userId    String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// `seguranca.BackupRow`.
+model Backup {
+  id        String   @id @default(cuid())
+  type      String
+  status    String
+  createdAt DateTime @default(now())
+}
+
+/// `provador.ProvadorUsage` — o uso do provador, por periodo.
+model ProvadorUsage {
+  id        String   @id @default(cuid())
+  at        DateTime @default(now())
+  /// O que foi usado: tela, peca ou sugestao.
+  kind      String   @default("")
+  reference String   @default("")
+
+  @@index([at])
+}
