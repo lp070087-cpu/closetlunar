@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Ruler, Sparkles } from 'lucide-react';
 
 /**
@@ -66,12 +67,12 @@ export function ProvadorIa({ imagem = '/site/avatar-provador.png' }: { imagem?: 
             inteligência garante o caimento perfeito.
           </p>
 
-          <button
-            type="button"
+          <Link
+            href="/conta/medidas"
             className="mt-8 inline-flex w-full items-center justify-center gap-3 rounded-full bg-foreground px-10 py-4 text-[10px] font-bold uppercase tracking-[0.25em] text-background shadow-xl transition-all hover:bg-foreground/90 active:scale-95 md:mt-12 md:w-auto md:px-12 md:py-5 md:text-[11px]"
           >
             Iniciar provador <Sparkles className="size-4" aria-hidden />
-          </button>
+          </Link>
 
           <div className="mt-10 flex flex-wrap justify-center gap-6 opacity-60 md:justify-start">
             <div className="flex items-center gap-2 text-[9px] uppercase tracking-widest text-muted-foreground">

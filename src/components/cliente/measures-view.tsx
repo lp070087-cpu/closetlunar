@@ -10,6 +10,7 @@ import {
 import { dataCurta } from '@/lib/cliente/metrics';
 import type { MedidaHistorico, PerfilMedidas } from '@/lib/cliente/types';
 import { ClienteToast, type TomAviso } from './cliente-toast';
+import { AvatarMedidasModal } from './avatar-medidas-modal';
 
 /**
  * `Minhas Medidas` — `/conta/medidas`, os prints `cli-010` (`004742`) e `cli-011`
@@ -115,6 +116,7 @@ export function MeasuresView() {
   const [tempoAtividade, setTempoAtividade] = useState('');
   const [sabeMedidas, setSabeMedidas] = useState<boolean | null>(null);
   const [aviso, setAviso] = useState<{ texto: string; tom: TomAviso } | null>(null);
+  const [avatarAberto, setAvatarAberto] = useState(false);
 
   useEffect(() => {
     let ativo = true;
@@ -160,6 +162,12 @@ export function MeasuresView() {
   return (
     <div className="space-y-8 motion-safe:animate-fade-up">
       <ClienteToast message={aviso?.texto ?? null} tom={aviso?.tom ?? 'sucesso'} />
+      {avatarAberto && (
+        <AvatarMedidasModal
+          medidas={form}
+          onClose={() => setAvatarAberto(false)}
+        />
+      )}
 
       {/* O cabecalho proprio desta tela — ver a nota do topo. */}
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
@@ -172,9 +180,10 @@ export function MeasuresView() {
         </div>
         <button
           type="button"
+          onClick={() => setAvatarAberto(true)}
           className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-foreground px-8 text-[10px] font-bold uppercase tracking-[0.15em] text-background shadow-md transition-all hover:opacity-90 active:scale-95"
         >
-          <Sparkles className="size-4" aria-hidden /> Ver no Avatar 3D
+          <Sparkles className="size-4" aria-hidden /> Ver no Avatar
         </button>
       </div>
 
