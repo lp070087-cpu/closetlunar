@@ -82,7 +82,7 @@ export async function listFinancialOrders(options?: {
   window?: DateWindow;
   signal?: AbortSignal;
 }): Promise<Dataset<Order[]>> {
-  return listPedidosOrders(options?.signal ? { signal: options.signal } : undefined);
+  return listPedidosOrders();
 }
 
 /**

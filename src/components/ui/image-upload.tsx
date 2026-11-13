@@ -37,6 +37,20 @@ function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
+/** Envia ao Vercel Blob (admin logado). Sem storage, cai para imagem local embutida (so previa). */
+async function enviarParaStorage(file: File): Promise<string> {
+  try {
+    const corpo = new FormData();
+    corpo.append('arquivo', file);
+    const r = await fetch('/api/admin/upload', { method: 'POST', body: corpo });
+    const j = (await r.json()) as { ok?: boolean; url?: string };
+    if (j.ok && j.url) return j.url;
+  } catch {
+    /* sem rede/storage: previa local */
+  }
+  return readFileAsDataUrl(file);
+}
+
 export interface ImageUploadProps {
   images: ProductImage[];
   onChange: (images: ProductImage[]) => void;
@@ -84,7 +98,7 @@ export function ImageUpload({
     try {
       const next: ProductImage[] = [];
       for (const file of accepted) {
-        const url = await readFileAsDataUrl(file);
+        const url = await enviarParaStorage(file);
         next.push({ id: localId('img'), url, alt: file.name });
       }
       onChange([...images, ...next]);

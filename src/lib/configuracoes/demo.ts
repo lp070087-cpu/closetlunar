@@ -149,7 +149,7 @@ export const DEMO_DELIVERY_ZONES: DeliveryZone[] = [
 export const DEMO_MELHOR_ENVIO: MelhorEnvioConfig = {
   token: '',
   sandbox: false,
-  active: true,
+  active: false,
   clientId: '26022',
   clientSecret: '',
   originCep: '53160010',
@@ -179,8 +179,8 @@ export const DEMO_PAYMENTS: PaymentConfig = {
  * não foram copiados, pelo mesmo motivo dos campos acima.
  */
 export const DEMO_CONNECTION: ConnectionInfo = {
-  status: 'ok',
-  accountName: 'Closet Lunar',
-  accountEmail: 'contato@closetlunar.com.br',
-  connectedAt: '15/06/2026, 16:29:06',
+  status: 'off',
+  accountName: '',
+  accountEmail: '',
+  connectedAt: '',
 };

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { ProductsView } from '@/components/admin/produtos/products-view';
+import Link from 'next/link';
 
 export const metadata: Metadata = { title: 'Produtos' };
 
@@ -12,5 +13,5 @@ export const metadata: Metadata = { title: 'Produtos' };
  * servidor (o que evita o salto de esqueleto para conteudo).
  */
 export default function ProdutosPage() {
-  return <ProductsView />;
+  return <><Link href="/admin/produtos/fotografias" className="focus-ring mb-5 inline-flex rounded-lg border border-border bg-background px-4 py-2 text-sm">Identificar fotografias reais</Link><ProductsView /></>;
 }

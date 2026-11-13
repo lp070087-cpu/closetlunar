@@ -2,6 +2,7 @@
 
 import { Check, MessageCircle } from 'lucide-react';
 import { useState } from 'react';
+import { useStoreWhatsApp, whatsappLinkFor } from '@/lib/site/whatsapp';
 import { useSacola } from '@/lib/site/carrinho';
 import { effectivePrice } from '@/lib/produtos/metrics';
 import type { Product } from '@/lib/produtos/types';
@@ -33,6 +34,7 @@ import { formatBRL } from '@/lib/utils';
  */
 export function ComprarProduto({ product }: { product: Product }) {
   const sacola = useSacola();
+  const whatsapp = useStoreWhatsApp();
 
   const umaCor = product.colors.length === 1 ? product.colors[0].name : '';
   const [tamanho, setTamanho] = useState(product.sizes.length === 1 ? product.sizes[0] : '');
@@ -63,7 +65,7 @@ export function ComprarProduto({ product }: { product: Product }) {
     setTimeout(() => setAdicionado(false), 1200);
   }
 
-  const textoWhats = encodeURIComponent(
+  const textoWhats = (
     [
       `Olá! Tenho interesse no produto: ${product.name}`,
       tamanho ? `Tamanho: ${tamanho}` : null,
@@ -72,7 +74,7 @@ export function ComprarProduto({ product }: { product: Product }) {
       `Valor: ${formatBRL(preco * quantidade)}`,
     ]
       .filter(Boolean)
-      .join('\n'),
+      .join('\n')
   );
 
   return (
@@ -173,12 +175,13 @@ export function ComprarProduto({ product }: { product: Product }) {
                   : 'ADICIONAR AO CARRINHO'}
         </button>
         <a
-          href={`https://wa.me/?text=${textoWhats}`}
+          href={whatsappLinkFor(whatsapp, textoWhats)}
+          aria-disabled={!whatsapp}
           target="_blank"
           rel="noopener noreferrer"
           className="flex w-full items-center justify-center gap-2 rounded border border-[#25D366] py-3 text-sm font-medium text-[#25D366]"
         >
-          <MessageCircle className="size-4" aria-hidden /> Comprar pelo WhatsApp
+          <MessageCircle className="size-4" aria-hidden /> Consultar pelo WhatsApp
         </a>
       </div>
     </>

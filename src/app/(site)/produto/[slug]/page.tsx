@@ -1,4 +1,7 @@
 import type { Metadata } from 'next';
+
+// Catalogo vem do banco: a vitrine se atualiza sozinha a cada minuto.
+export const revalidate = 60;
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { RefreshCw, ShieldCheck, Truck } from 'lucide-react';
@@ -86,7 +89,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ slug: 
   const selos: { label: string; tom: 'escuro' | 'claro' }[] = [];
   if (desconto > 0) selos.push({ label: `-${desconto}%`, tom: 'escuro' });
   if (produto.stock > 0 && produto.stock <= 3) selos.push({ label: 'Últimas peças', tom: 'claro' });
-  else if (produto.featured) selos.push({ label: 'Best Seller', tom: 'claro' });
+  else if (produto.featured) selos.push({ label: 'Destaque', tom: 'claro' });
 
   /*
     A grade de `Voce tambem pode gostar` — os destaques, menos a propria peca.
@@ -117,6 +120,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ slug: 
 
         <div>
           <h1 className="font-serif text-3xl leading-tight md:text-4xl">{produto.name}</h1>
+          <p className="mt-2 text-xs text-muted-foreground">Catálogo demonstrativo: preço e disponibilidade precisam de confirmação da loja.</p>
 
           <div className="mt-4">
             {temDesconto && (
@@ -129,8 +133,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ slug: 
             )}
             <div className="text-3xl font-medium">{formatBRL(preco)}</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              ou 6x de <span className="font-medium text-foreground">{formatBRL(preco / 6)}</span> sem
-              juros
+              Condições de pagamento a definir
             </div>
           </div>
 
@@ -155,13 +158,13 @@ export default async function ProdutoPage({ params }: { params: Promise<{ slug: 
 
           <div className="mt-8 space-y-3 text-sm text-muted-foreground">
             <div className="flex items-center gap-3">
-              <Truck className="size-4" aria-hidden /> Frete grátis acima de R$299
+              <Truck className="size-4" aria-hidden /> Frete a confirmar com a loja
             </div>
             <div className="flex items-center gap-3">
-              <RefreshCw className="size-4" aria-hidden /> Primeira troca grátis em até 7 dias
+              <RefreshCw className="size-4" aria-hidden /> Consulte a política de trocas
             </div>
             <div className="flex items-center gap-3">
-              <ShieldCheck className="size-4" aria-hidden /> Pagamento 100% seguro
+              <ShieldCheck className="size-4" aria-hidden /> Pagamento online ainda indisponível
             </div>
           </div>
         </div>

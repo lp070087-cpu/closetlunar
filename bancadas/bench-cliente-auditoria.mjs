@@ -248,12 +248,12 @@ const dominios = [...new Set(importacoes.map((i) => i.de))]
   .filter((d) => !d.startsWith('@/lib/cliente'))
   .sort();
 
-const DOMINIOS_ESPERADOS = ['@/components/ui/stat', '@/lib/access', '@/lib/afiliadas/demo', '@/lib/afiliadas/metrics', '@/lib/afiliadas/types', '@/lib/pedidos/demo', '@/lib/pedidos/metrics', '@/lib/pedidos/types', '@/lib/utils'];
+const DOMINIOS_ESPERADOS = ['@/components/site/site-header', '@/components/ui/stat', '@/lib/access', '@/lib/auth/acoes', '@/lib/afiliadas/demo', '@/lib/afiliadas/metrics', '@/lib/afiliadas/types', '@/lib/pedidos/demo', '@/lib/pedidos/metrics', '@/lib/pedidos/types', '@/lib/utils'];
 const dominiosForaDoEsperado = dominios.filter((d) => !DOMINIOS_ESPERADOS.includes(d));
 const dominiosFaltando = DOMINIOS_ESPERADOS.filter((d) => !dominios.includes(d));
 
 if (dominiosForaDoEsperado.length === 0 && dominiosFaltando.length === 0)
-  ok('as dependencias de fora da area sao as nove declaradas', dominios.length + ' modulos');
+  ok('as dependencias de fora da area sao as declaradas', dominios.length + ' modulos, incluindo cabecalho compartilhado e actions de autenticacao');
 else
   fail('as dependencias mudaram',
     `novas=[${dominiosForaDoEsperado.join(', ')}] faltando=[${dominiosFaltando.join(', ')}]`);

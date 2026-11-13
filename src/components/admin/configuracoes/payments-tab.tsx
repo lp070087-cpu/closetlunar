@@ -6,7 +6,7 @@ import { Checkbox, Field, FieldGrid, Input } from '@/components/ui/form';
 import type { PaymentConfig } from '@/lib/configuracoes/types';
 
 /** O endereço que a loja cola no painel da InfinitePay. */
-export const WEBHOOK_URL = 'https://closetlunar.lovable.app/api/public/infinitepay/webhook';
+export const WEBHOOK_URL = 'Indisponível até a escolha e implementação do gateway';
 
 /**
  * A aba `PAGAMENTOS` — adm-223.
@@ -54,12 +54,12 @@ export function PaymentsTab({
   return (
     <div className="max-w-2xl">
       <div className="rounded-2xl border border-border bg-background p-5">
-        <h3 className="text-sm font-bold">InfinitePay</h3>
+        <h3 className="text-sm font-bold">Pagamentos — gateway a definir</h3>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          Configure as credenciais para receber PIX e cartão na loja.
+          A escolha do gateway depende do proprietário. Nenhuma cobrança está habilitada.
         </p>
 
-        <div className="mt-5">
+        <fieldset disabled aria-label="Credenciais indisponíveis até a integração" className="opacity-60"><div className="mt-5">
           <FieldGrid columns={2}>
             <Field label="API Key / Token">
               <Input
@@ -119,10 +119,11 @@ export function PaymentsTab({
           </p>
           <code className="mt-1 block break-all text-xs">{WEBHOOK_URL}</code>
           <p className="mt-1.5 text-[11px] text-muted-foreground">
-            Cole esta URL no painel InfinitePay (notificações/webhooks).
+            Não cadastre webhooks nem informe segredos enquanto a integração não estiver disponível.
           </p>
         </div>
 
+        </fieldset>
         {aviso ? (
           <p role="status" className="mt-4 text-xs text-warning">
             {aviso}
@@ -130,10 +131,10 @@ export function PaymentsTab({
         ) : null}
 
         <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-border pt-4">
-          <Button variant="primary" disabled={saving} onClick={() => onSave(form)}>
+          <Button variant="primary" disabled onClick={() => onSave(form)}>
             {saving ? 'Salvando…' : 'Salvar configurações'}
           </Button>
-          <Button variant="outline" onClick={onTest}>
+          <Button variant="outline" disabled onClick={onTest}>
             Testar conexão
           </Button>
         </div>

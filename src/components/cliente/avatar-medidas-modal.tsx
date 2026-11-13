@@ -1,7 +1,8 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Ruler, X } from 'lucide-react';
 
 type Medidas = {
@@ -33,28 +34,58 @@ export function AvatarMedidasModal({
   medidas: Medidas;
   onClose: () => void;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  const [imagemFalhou, setImagemFalhou] = useState(false);
+  closeRef.current = onClose;
+
   useEffect(() => {
+    const anterior = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const overflowAnterior = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    dialogRef.current?.focus();
     const fechar = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeRef.current();
+      }
+      if (event.key !== 'Tab') return;
+      const botoes = dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), [href], input, select, textarea, [tabindex="0"]');
+      if (!botoes?.length) return;
+      const primeiro = botoes[0];
+      const ultimo = botoes[botoes.length - 1];
+      if (event.shiftKey && (document.activeElement === primeiro || document.activeElement === dialogRef.current)) {
+        event.preventDefault();
+        ultimo.focus();
+      } else if (!event.shiftKey && document.activeElement === ultimo) {
+        event.preventDefault();
+        primeiro.focus();
+      }
     };
 
     document.addEventListener('keydown', fechar);
 
-    return () => document.removeEventListener('keydown', fechar);
-  }, [onClose]);
+    return () => {
+      document.removeEventListener('keydown', fechar);
+      document.body.style.overflow = overflowAnterior;
+      anterior?.focus();
+    };
+  }, []);
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/65 p-3 backdrop-blur-sm sm:p-6"
-      onMouseDown={(event) => {
+      onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="avatar-medidas-titulo"
-        className="relative grid max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-background shadow-2xl md:grid-cols-2"
+        className="relative grid max-h-[92dvh] w-full max-w-4xl overscroll-contain overflow-y-auto rounded-3xl bg-background shadow-2xl outline-none md:grid-cols-2"
       >
         <button
           type="button"
@@ -65,13 +96,15 @@ export function AvatarMedidasModal({
           <X className="size-5" />
         </button>
 
-        <div className="flex min-h-[340px] items-center justify-center bg-secondary p-6 md:min-h-[520px]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+        <div className="flex min-h-[240px] items-center justify-center bg-secondary p-6 md:min-h-[520px]">
+          {imagemFalhou ? <p role="status" className="text-sm text-muted-foreground">Imagem ilustrativa indisponível. Suas medidas continuam abaixo.</p> : (
           <img
             src="/site/avatar-provador.png"
             alt="Avatar ilustrativo Closet Lunnar"
-            className="max-h-[470px] w-full object-contain"
+            onError={() => setImagemFalhou(true)}
+            className="max-h-[35dvh] w-full object-contain md:max-h-[470px]"
           />
+          )}
         </div>
 
         <div className="flex flex-col justify-center p-6 sm:p-10">
@@ -120,6 +153,6 @@ export function AvatarMedidasModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>, document.body
   );
 }

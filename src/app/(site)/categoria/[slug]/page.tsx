@@ -1,4 +1,7 @@
 import type { Metadata } from 'next';
+
+// Catalogo vem do banco: a vitrine se atualiza sozinha a cada minuto.
+export const revalidate = 60;
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ProductCard } from '@/components/site/product-card';

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { LogOut, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { visibleGroups, type AdminNavGroup, type AdminRole } from '@/lib/nav';
@@ -24,6 +24,8 @@ interface AdminShellProps {
 
 export function AdminShell({ groups, currentLabel, email, role, children }: AdminShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const drawerRef = useRef<HTMLElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   // Ao trocar de rota, garante que o drawer mobile nao fique aberto.
   useEffect(() => {
@@ -35,8 +37,25 @@ export function AdminShell({ groups, currentLabel, email, role, children }: Admi
     if (!mobileNavOpen) return;
     const { overflow } = document.body.style;
     document.body.style.overflow = 'hidden';
+    const focusable = () => Array.from(drawerRef.current?.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),[tabindex="0"]') ?? []);
+    focusable()[0]?.focus();
+    function keydown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setMobileNavOpen(false);
+      if (event.key !== 'Tab') return;
+      const nodes = focusable();
+      const first = nodes[0], last = nodes[nodes.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    }
+    const desktop = window.matchMedia('(min-width: 1024px)');
+    const closeOnDesktop = () => { if (desktop.matches) setMobileNavOpen(false); };
+    desktop.addEventListener('change', closeOnDesktop);
+    document.addEventListener('keydown', keydown);
     return () => {
       document.body.style.overflow = overflow;
+      desktop.removeEventListener('change', closeOnDesktop);
+      document.removeEventListener('keydown', keydown);
+      triggerRef.current?.focus();
     };
   }, [mobileNavOpen]);
 
@@ -62,6 +81,8 @@ export function AdminShell({ groups, currentLabel, email, role, children }: Admi
             onClick={() => setMobileNavOpen(false)}
           />
           <aside
+            ref={drawerRef}
+            id="admin-mobile-menu"
             className="relative flex h-full w-72 max-w-[85vw] flex-col border-r border-border/70 bg-background shadow-elegant motion-safe:animate-slide-in-left"
             role="dialog"
             aria-modal="true"
@@ -83,6 +104,8 @@ export function AdminShell({ groups, currentLabel, email, role, children }: Admi
             <div className="flex min-w-0 items-center gap-4">
               <button
                 type="button"
+                ref={triggerRef}
+                aria-controls="admin-mobile-menu"
                 onClick={() => setMobileNavOpen(true)}
                 aria-label="Abrir menu"
                 aria-expanded={mobileNavOpen}
@@ -111,7 +134,7 @@ export function AdminShell({ groups, currentLabel, email, role, children }: Admi
                 </span>
                 <span className="mt-0.5 flex items-center gap-1.5">
                   <span className="relative flex size-1.5">
-                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-60" />
+                    <span className="absolute inline-flex size-full motion-safe:animate-ping rounded-full bg-success opacity-60" />
                     <span className="relative inline-flex size-1.5 rounded-full bg-success" />
                   </span>
                   <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">

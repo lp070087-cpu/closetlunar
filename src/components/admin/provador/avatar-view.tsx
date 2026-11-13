@@ -75,8 +75,8 @@ export function AvatarView({
             <header className="mb-5">
               <h3 className="font-serif text-xl leading-tight">Gerenciador de Avatar</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                Configure as imagens oficiais para o Provador Virtual 360°. Clique em{' '}
-                <span className="font-bold text-foreground">Salvar Alterações</span> para aplicar.
+                Prévia ilustrativa em 2D. O envio e salvamento de imagens dependem do storage.
+                A rotação 3D requer um modelo e um visualizador ainda não disponíveis.
               </p>
             </header>
 
@@ -84,7 +84,7 @@ export function AvatarView({
               {avatar.slots.map((slot) => (
                 <li
                   key={slot.key}
-                  className="flex items-center gap-4 rounded-2xl border border-border/70 bg-background px-4 py-3"
+                  className="flex flex-wrap items-center gap-4 rounded-2xl border border-border/70 bg-background px-4 py-3"
                 >
                   <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-border/60 bg-muted/40">
                     {slot.url ? (

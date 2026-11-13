@@ -28,9 +28,8 @@ import type {
   ZoneDraft,
 } from '@/lib/configuracoes/types';
 import { ConfiguracoesTabs } from './configuracoes-tabs';
-import { ShippingSection } from './melhor-envio-tab';
+import { InfinitePayConfig, MelhorEnvioConfig as MelhorEnvioPainel } from './integracoes-reais';
 import { OwnDeliveryTab } from './own-delivery-tab';
-import { PaymentsTab } from './payments-tab';
 import { ZoneForm, draftFromZone, draftNewCity } from './zone-form';
 
 /**
@@ -66,6 +65,7 @@ export function ConfiguracoesView() {
 
   const [salvando, setSalvando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
 
   const [draft, setDraft] = useState<ZoneDraft | null>(null);
   const [formAberto, setFormAberto] = useState(false);
@@ -81,7 +81,7 @@ export function ConfiguracoesView() {
         setConnection(c.data);
         setPayments(p.data);
       },
-    );
+    ).catch(() => { if (vivo) setErro('Não foi possível carregar as configurações. Recarregue a página.'); });
     return () => {
       vivo = false;
     };
@@ -120,7 +120,7 @@ export function ConfiguracoesView() {
       });
       setSalvando(false);
       setAviso(res.reason);
-    });
+    }).catch(() => { setAviso('Não foi possível salvar. Nenhuma alteração foi confirmada.'); }).finally(() => setSalvando(false));
   }
 
   function salvarMelhorEnvio(config: MelhorEnvioConfig) {
@@ -129,7 +129,7 @@ export function ConfiguracoesView() {
       setMelhorEnvio(res.data);
       setSalvando(false);
       setAviso(res.reason);
-    });
+    }).catch(() => { setAviso('Não foi possível salvar. Nenhuma alteração foi confirmada.'); }).finally(() => setSalvando(false));
   }
 
   function salvarPagamentos(config: PaymentConfig) {
@@ -138,7 +138,7 @@ export function ConfiguracoesView() {
       setPayments(res.data);
       setSalvando(false);
       setAviso(res.reason);
-    });
+    }).catch(() => { setAviso('Não foi possível salvar. Nenhuma alteração foi confirmada.'); }).finally(() => setSalvando(false));
   }
 
   /**
@@ -158,9 +158,10 @@ export function ConfiguracoesView() {
     <div className="space-y-6">
       <SectionHeader title="Configurações" description="Preferências gerais da loja." />
 
+      <p className="rounded-xl border border-border bg-secondary/30 p-3 text-xs text-muted-foreground">Pagamentos (InfinitePay) e frete (Melhor Envio) são gravados no banco. A aba Entrega própria ainda é uma prévia local.</p>
       <ConfiguracoesTabs value={aba} onChange={setAba} />
 
-      {carregando ? (
+      {erro ? <p role="alert" className="text-sm text-danger">{erro}</p> : carregando ? (
         <p className="surface p-10 text-center text-sm text-muted-foreground">Carregando…</p>
       ) : aba === 'entrega_propria' ? (
         <OwnDeliveryTab
@@ -185,25 +186,9 @@ export function ConfiguracoesView() {
           }
         />
       ) : aba === 'melhor_envio' || aba === 'integracao' ? (
-        <ShippingSection
-          config={melhorEnvio}
-          connection={connection}
-          saving={salvando}
-          aviso={aviso}
-          onSave={salvarMelhorEnvio}
-          onDisconnect={() =>
-            setConnection({ ...connection, status: 'off', accountName: '', accountEmail: '', connectedAt: '' })
-          }
-          onTest={avisarNaoConectado}
-        />
+        <MelhorEnvioPainel />
       ) : (
-        <PaymentsTab
-          config={payments}
-          saving={salvando}
-          aviso={aviso}
-          onSave={salvarPagamentos}
-          onTest={avisarNaoConectado}
-        />
+        <InfinitePayConfig />
       )}
 
       <ZoneForm

@@ -14,9 +14,11 @@ import { AccountShell } from '@/components/cliente/account-shell';
 export function AccountLayoutClient({
   saudacao,
   children,
+  demo,
 }: {
   saudacao: string;
   children: React.ReactNode;
+  demo: boolean;
 }) {
-  return <AccountShell saudacao={saudacao}>{children}</AccountShell>;
+  return <AccountShell saudacao={saudacao} demo={demo}>{children}</AccountShell>;
 }

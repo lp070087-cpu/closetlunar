@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Sparkles } from 'lucide-react';
-import { ERRO_CREDENCIAL, MANTER_CONECTADO_PADRAO, MENSAGEM_ENTROU, MENSAGEM_RECUPERACAO, type ModoConta } from '@/lib/cliente/sessao';
+import { ERRO_CREDENCIAL, MANTER_CONECTADO_PADRAO, MENSAGEM_ENTROU, type ModoConta } from '@/lib/cliente/sessao';
+import { entrar, cadastrar } from '@/lib/auth/acoes';
 import { SENHA_MINIMA, validarLogin } from '@/lib/cliente/login';
 import { ClienteToast, type TomAviso } from './cliente-toast';
 
@@ -31,22 +33,19 @@ import { ClienteToast, type TomAviso } from './cliente-toast';
  * `account-shell.tsx`, e nao o roteador. Inventar `/conta/login` seria criar uma
  * URL que o material nao tem e um segundo caminho para a mesma coisa.
  *
- * ================== O ENVIO NAO AUTENTICA ==================
- *
- * Ver `lib/cliente/login.ts` e `lib/cliente/sessao.ts`: nao ha provedor. O envio
- * bem-sucedido aqui liga a sessao de demonstracao da casca — e a sessao morre
- * com a aba, porque nao ha persistencia (e a nota em `sessao.ts` explica por
- * que gravar no navegador seria mentira nesta fase).
+ * O envio chama as actions do servidor. Sem banco, a autenticacao recusa;
+ * o formulario nunca cria uma sessao de demonstracao a partir de credenciais.
  */
 export interface CustomerLoginProps {
   /**
-   * Chamado quando o formulario passa na validacao. E o que a casca usa para
-   * trocar o portao pela area.
+   * Chamado somente depois que o servidor confirma a autenticacao.
    */
-  onEntrar: () => void;
+  onEntrar?: () => void;
+  admin?: boolean;
 }
 
-export function CustomerLogin({ onEntrar }: CustomerLoginProps) {
+export function CustomerLogin({ onEntrar, admin = false }: CustomerLoginProps) {
+  const router = useRouter();
   const [modo, setModo] = useState<ModoConta>('login');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
@@ -55,10 +54,12 @@ export function CustomerLogin({ onEntrar }: CustomerLoginProps) {
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [manterConectado, setManterConectado] = useState(MANTER_CONECTADO_PADRAO);
   const [aviso, setAviso] = useState<{ texto: string; tom: TomAviso } | null>(null);
+  const [enviando, setEnviando] = useState(false);
 
   /** Aplica o veredito da validacao e, se passou, entra. */
-  function enviar(evento: React.FormEvent) {
+  async function enviar(evento: React.FormEvent) {
     evento.preventDefault();
+    if (enviando) return;
     const { valido, motivo } = validarLogin({ email, senha });
 
     if (!valido) {
@@ -66,9 +67,26 @@ export function CustomerLogin({ onEntrar }: CustomerLoginProps) {
       return;
     }
 
-    // Demonstracao: nao ha credencial para conferir. Ver o topo do arquivo.
-    setAviso({ texto: MENSAGEM_ENTROU, tom: 'sucesso' });
-    onEntrar();
+    setEnviando(true);
+    try {
+      const resultado = modo === 'login'
+        ? await entrar({ email, senha, manterConectado, exigirPapel: admin ? 'admin' : undefined })
+        : await cadastrar({ nome, email, senha, telefone: whatsapp });
+      if (!resultado.ok) {
+        setSenha('');
+        setAviso({ texto: resultado.motivo ?? ERRO_CREDENCIAL, tom: 'erro' });
+        return;
+      }
+      setAviso({ texto: MENSAGEM_ENTROU, tom: 'sucesso' });
+      onEntrar?.();
+      router.replace(resultado.destino ?? (admin ? '/admin' : '/conta'));
+      router.refresh();
+    } catch {
+      setSenha('');
+      setAviso({ texto: 'Não foi possível acessar sua conta. Tente novamente.', tom: 'erro' });
+    } finally {
+      setEnviando(false);
+    }
   }
 
   /*
@@ -82,7 +100,7 @@ export function CustomerLogin({ onEntrar }: CustomerLoginProps) {
       setAviso({ texto: 'Informe seu e-mail primeiro', tom: 'erro' });
       return;
     }
-    setAviso({ texto: MENSAGEM_RECUPERACAO, tom: 'sucesso' });
+    setAviso({ texto: 'Recuperação de senha indisponível: o envio de e-mail ainda não está conectado.', tom: 'erro' });
   }
 
   const entrada = modo === 'login';
@@ -95,7 +113,7 @@ export function CustomerLogin({ onEntrar }: CustomerLoginProps) {
         <div className="mb-4 inline-flex size-12 items-center justify-center rounded-full bg-foreground text-background">
           <Sparkles className="size-5" aria-hidden />
         </div>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Minha Conta</p>
+        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">{admin ? 'Acesso administrativo' : 'Minha Conta'}</p>
         <h1 className="mt-1 font-serif text-3xl">{entrada ? 'Entrar' : 'Criar conta'}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {entrada ? 'Acesse seu universo Closet Lunar' : 'Sua nova experiência fashion começa aqui'}
@@ -164,9 +182,10 @@ export function CustomerLogin({ onEntrar }: CustomerLoginProps) {
 
         <button
           type="submit"
+          disabled={enviando}
           className="focus-ring h-11 w-full rounded-xl bg-foreground text-sm tracking-[0.12em] text-background"
         >
-          {entrada ? 'ENTRAR' : 'CRIAR CONTA'}
+          {enviando ? 'AGUARDE…' : entrada ? 'ENTRAR' : 'CRIAR CONTA'}
         </button>
 
         {entrada && (
@@ -180,7 +199,7 @@ export function CustomerLogin({ onEntrar }: CustomerLoginProps) {
         )}
       </form>
 
-      <p className="mt-6 text-center text-sm text-muted-foreground">
+      {!admin && <p className="mt-6 text-center text-sm text-muted-foreground">
         {entrada ? 'Ainda não tem conta?' : 'Já tem conta?'}{' '}
         <button
           type="button"
@@ -189,7 +208,7 @@ export function CustomerLogin({ onEntrar }: CustomerLoginProps) {
         >
           {entrada ? 'Criar agora' : 'Entrar'}
         </button>
-      </p>
+      </p>}
     </div>
   );
 }

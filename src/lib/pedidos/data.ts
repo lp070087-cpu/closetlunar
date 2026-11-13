@@ -1,101 +1,109 @@
+'use server';
+
 /**
- * Camada de dados de Pedidos.
+ * Camada de dados de Pedidos — LIGADA AO BANCO (Neon/Prisma).
  *
- * ESTE E O UNICO PONTO DE CONTATO DA TELA COM OS DADOS. Nenhum componente
- * importa de `demo.ts` nem conhece Prisma. Quando o Neon entrar, troca-se o
- * corpo destas funcoes; a assinatura e as telas continuam iguais.
- *
- * A PONTE COM PRODUTOS
- *
- * O pedido guarda `productId`, e nao uma copia do produto — mas ele guarda
- * TAMBEM o nome e o preco do momento da venda, e essa redundancia e de
- * proposito: um pedido de junho precisa continuar dizendo R$ 179,00 depois que
- * o preco subir para R$ 199,00. O `productId` serve para LIGAR as duas pontas
- * (relatorio, estoque, link para o produto), e o nome/preco para o pedido nao
- * depender de um cadastro que muda.
- *
- * E por isso que este arquivo NAO reescreve `productName` a partir de
- * `lib/produtos`: fazer isso "consertaria" o historico. A ligacao com o
- * catalogo fica disponivel em `listOrderProductLinks`, que e leitura pura e nao
- * toca no pedido.
- *
- * TRES LEITURAS, NA ORDEM DAS DUAS ABAS
- *
- *   listOrders          -> a aba `Todos`        (adm-003)
- *   listTrackedOrders   -> a aba `Rastreamento` (adm-004)
- *   listOrderProductLinks -> a ponte Pedido -> Produto, para o relatorio
- *
- * O QUE ESTE ARQUIVO NAO FAZ
- *
- * Nao grava nada (nao ha `save*`): a unica escrita possivel nesta tela seria
- * mudar status ou lancar rastreio, e nenhum dos dois tem print. Criar um
- * `saveOrderStatus` sem print seria projetar a interface por antecipacao. O
- * `WriteResult` fica de fora de proposito, e a ausencia dele e a prova de que a
- * fase nao inventou a acao.
+ * `use server` + guarda de ADMIN: pedido tem dado pessoal da cliente (nome,
+ * telefone, endereco). Sem sessao de admin a leitura devolve lista vazia.
+ * Sem banco (desenvolvimento local), devolve o demo.
  */
 
-import { DEMO_PRODUCTS_PRODUTOS } from '@/lib/produtos/demo';
-import type { Product } from '@/lib/produtos/types';
-import { DEMO_ORDERS_PEDIDOS, DEMO_TRACKED_ORDER } from './demo';
+import { temBanco } from '@/lib/db';
+import { ler } from '@/lib/data/repositorio';
+import { numero, iso, statusPedido, metodoPagamento } from '@/lib/data/mapear';
+import { sessaoAtual } from '@/lib/auth/guardas';
+import { DEMO_ORDERS_PEDIDOS } from './demo';
 import { filterByTab, sortOrders, trackedOrders } from './metrics';
-import type { Order, OrdersTab } from './types';
+import type { Order, OrdersTab, ShippingStatus } from './types';
+import type { Product } from '@/lib/produtos/types';
+import { listProducts } from '@/lib/produtos/data';
 
 export interface Dataset<T> {
   data: T;
-  /**
-   * De onde os dados vieram. A tela usa isso para rotular a origem e nao
-   * apresentar dado de exemplo como se fosse real.
-   */
   source: 'demo' | 'database';
 }
 
-/** Os pedidos, mais recente primeiro — a ordem de adm-003. */
-export async function listOrders(options?: { signal?: AbortSignal }): Promise<Dataset<Order[]>> {
-  if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  return { data: sortOrders(DEMO_ORDERS_PEDIDOS), source: 'demo' };
+const ENTREGA: ShippingStatus[] = [
+  'aguardando_postagem', 'postado', 'em_transito', 'saiu_para_entrega', 'entregue', 'extraviado', 'devolvido',
+];
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function paraOrder(l: any): Order {
+  return {
+    id: l.id,
+    code: l.code,
+    placedAt: iso(l.placedAt),
+    status: statusPedido(l.status),
+    paymentStatus: l.paymentStatus,
+    customer: { name: l.customerName, phone: l.customerPhone, email: l.customerEmail },
+    items: (l.items ?? []).map((i: any) => ({
+      id: i.id,
+      productId: i.productId,
+      productName: i.productName,
+      size: i.size,
+      color: i.color,
+      quantity: i.quantity,
+      unitPrice: numero(i.unitPrice),
+    })),
+    payment: {
+      method: metodoPagamento(l.paymentMethod),
+      shippingPrice: numero(l.shippingPrice),
+      discount: numero(l.discount),
+      couponCode: l.couponCode,
+      subtotal: numero(l.subtotal),
+      total: numero(l.total),
+    },
+    shipping: {
+      kind: l.shippingKind === 'propria' ? 'propria' : 'transportadora',
+      carrier: l.carrier,
+      trackingCode: l.trackingCode,
+      status: ENTREGA.includes(l.shippingStatus) ? l.shippingStatus : null,
+      shipmentMethod: l.shipmentMethod,
+    },
+    address: {
+      street: [l.addressStreet, l.addressNumber, l.addressDistrict].filter(Boolean).join(', '),
+      cep: l.addressZip,
+      city: l.addressCity,
+      state: l.addressState,
+      complement: l.addressComplement || null,
+    },
+  };
 }
 
-/**
- * Os pedidos da aba `Rastreamento` (adm-004).
- *
- * Ordenados pela mesma regra da outra aba: o print mostra `Mariana` (14:56:54)
- * antes de `carinna` (14:45:30), que e a ordem de data decrescente.
- */
-export async function listTrackedOrders(options?: {
-  signal?: AbortSignal;
-}): Promise<Dataset<Order[]>> {
-  if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  return { data: sortOrders(trackedOrders(DEMO_ORDERS_PEDIDOS)), source: 'demo' };
+async function todos(): Promise<Dataset<Order[]>> {
+  if (temBanco()) {
+    const s = await sessaoAtual();
+    if (!s || s.papel !== 'admin') return { data: [], source: 'database' };
+  }
+  const r = await ler(DEMO_ORDERS_PEDIDOS, async (db) => {
+    const linhas = await db.order.findMany({ include: { items: true }, orderBy: { placedAt: 'desc' }, take: 500 });
+    return linhas.map(paraOrder);
+  });
+  return { data: r.data, source: r.source };
 }
 
-/**
- * A ponte Pedido -> Produto -> Variacao.
- *
- * Devolve, por pedido, os itens que AINDA existem no catalogo, ligados ao
- * `Product` de verdade. Os itens cujo `productId` nao existe mais aparecem em
- * `missing` em vez de sumirem calados — um pedido que aponta para um produto
- * apagado e um problema de dado, e a tela de relatorio precisa saber disso.
- *
- * O que a ligacao NAO faz: reescrever o nome ou o preco do pedido. O que foi
- * vendido fica registrado no pedido; o que existe hoje fica no catalogo.
- */
+export async function listOrders(): Promise<Dataset<Order[]>> {
+  const r = await todos();
+  return { data: sortOrders(r.data), source: r.source };
+}
+
+export async function listTrackedOrders(): Promise<Dataset<Order[]>> {
+  const r = await todos();
+  return { data: sortOrders(trackedOrders(r.data)), source: r.source };
+}
+
 export interface OrderProductLink {
   orderId: string;
   productId: string;
-  /** O produto de hoje, ou `null` se ele saiu do catalogo. */
   product: Product | null;
-  /** O que o pedido registrou na venda. */
   soldAs: string;
 }
 
-export async function listOrderProductLinks(options?: {
-  signal?: AbortSignal;
-}): Promise<Dataset<OrderProductLink[]>> {
-  if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-
-  const catalog = new Map(DEMO_PRODUCTS_PRODUTOS.map((product) => [product.id, product]));
+export async function listOrderProductLinks(): Promise<Dataset<OrderProductLink[]>> {
+  const [r, produtos] = await Promise.all([todos(), listProducts()]);
+  const catalog = new Map(produtos.data.map((p) => [p.id, p]));
   const links: OrderProductLink[] = [];
-  for (const order of DEMO_ORDERS_PEDIDOS) {
+  for (const order of r.data) {
     for (const item of order.items) {
       links.push({
         orderId: order.id,
@@ -105,23 +113,18 @@ export async function listOrderProductLinks(options?: {
       });
     }
   }
-  return { data: links, source: 'demo' };
+  return { data: links, source: r.source };
 }
 
-/** A contagem de cada uma das duas abas, para o `(N)` do chip. */
-export async function listTabCounts(options?: {
-  signal?: AbortSignal;
-}): Promise<Dataset<Record<OrdersTab, number>>> {
-  if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  const orders = DEMO_ORDERS_PEDIDOS;
+export async function listTabCounts(): Promise<Dataset<Record<OrdersTab, number>>> {
+  const r = await todos();
   return {
     data: {
-      todos: filterByTab(orders, 'todos').length,
-      rastreamento: filterByTab(orders, 'rastreamento').length,
+      todos: filterByTab(r.data, 'todos').length,
+      rastreamento: filterByTab(r.data, 'rastreamento').length,
     },
-    source: 'demo',
+    source: r.source,
   };
 }
 
-export { DEMO_TRACKED_ORDER };
 export type { Order, OrdersTab };

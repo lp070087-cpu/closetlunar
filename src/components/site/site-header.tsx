@@ -1,5 +1,9 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Heart, Search, User } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { Heart, Search, ShoppingBag, User, X } from 'lucide-react';
 import { BotaoSacola } from './botao-sacola';
 import { clientHref } from '@/lib/cliente/nav';
 
@@ -75,7 +79,33 @@ const MENU = [
   { label: 'Conjuntos', href: '/categoria/conjuntos' },
 ] as const;
 
-export function SiteHeader() {
+export function SiteHeader({ cartHref }: { cartHref?: string } = {}) {
+  const pathname = usePathname();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menu = useRef<HTMLDialogElement>(null);
+  const menuButton = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => { setMenuOpen(false); }, [pathname]);
+
+  useEffect(() => {
+    const dialog = menu.current;
+    const trigger = menuButton.current;
+    if (!menuOpen || !dialog) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    dialog.showModal();
+    const desktop = window.matchMedia('(min-width: 1280px)');
+    const closeOnDesktop = () => { if (desktop.matches) setMenuOpen(false); };
+    desktop.addEventListener('change', closeOnDesktop);
+    closeOnDesktop();
+    return () => {
+      desktop.removeEventListener('change', closeOnDesktop);
+      dialog.close();
+      document.body.style.overflow = previousOverflow;
+      if (trigger?.getClientRects().length) trigger.focus();
+    };
+  }, [menuOpen]);
+
   return (
     <>
       {/* Barra preta de recados. */}
@@ -95,16 +125,15 @@ export function SiteHeader() {
 
       <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-20 w-full items-center gap-4 px-4">
-          {/*
-            `md:hidden`, e NAO `lg:hidden`: e o que o original declara. A
-            diferenca importa — as categorias so aparecem a partir de `lg`, e um
-            botao que sumisse so em `lg` deixaria a faixa entre `md` e `lg` sem
-            menu E sem categorias.
-          */}
+          {/* O menu cobre celular e tablet, ate as categorias desktop aparecerem. */}
           <button
+            ref={menuButton}
             type="button"
             aria-label="Abrir menu"
-            className="focus-ring -ml-2 rounded-lg p-2 md:hidden"
+            aria-expanded={menuOpen}
+            aria-controls="store-mobile-menu"
+            onClick={() => setMenuOpen(true)}
+            className="focus-ring -ml-2 flex min-h-11 min-w-11 flex-col justify-center rounded-lg p-2 xl:hidden"
           >
             <span className="block h-0.5 w-5 bg-foreground" />
             <span className="mt-1 block h-0.5 w-5 bg-foreground" />
@@ -115,7 +144,7 @@ export function SiteHeader() {
             Closet <span className="italic">Lunar</span>
           </Link>
 
-          <nav aria-label="Categorias" className="ml-8 hidden items-center gap-6 text-sm lg:flex">
+          <nav aria-label="Categorias" className="ml-8 hidden items-center gap-6 text-sm xl:flex">
             {MENU.map((item) => (
               <Link
                 key={item.href}
@@ -164,10 +193,41 @@ export function SiteHeader() {
             >
               <Heart className="size-5" aria-hidden />
             </Link>
-            <BotaoSacola />
+            {cartHref ? (
+              <Link href={cartHref} aria-label="Sacola" className="focus-ring rounded-full p-2">
+                <ShoppingBag className="size-5" aria-hidden />
+              </Link>
+            ) : <BotaoSacola />}
           </div>
         </div>
       </header>
+
+      <dialog
+        ref={menu}
+        id="store-mobile-menu"
+        aria-labelledby="store-mobile-menu-title"
+        onCancel={() => setMenuOpen(false)}
+        onClose={() => setMenuOpen(false)}
+        onClick={(event) => { if (event.target === event.currentTarget) setMenuOpen(false); }}
+        className="m-0 h-dvh max-h-none w-[min(90vw,24rem)] max-w-none border-0 bg-background p-0 text-foreground shadow-elegant backdrop:bg-black/40"
+      >
+        <div className="flex min-h-full flex-col p-6">
+          <div className="mb-6 flex items-center justify-between gap-4">
+            <h2 id="store-mobile-menu-title" className="font-serif text-2xl">Closet <span className="italic">Lunar</span></h2>
+            <button type="button" autoFocus aria-label="Fechar menu" onClick={() => setMenuOpen(false)} className="focus-ring flex size-11 items-center justify-center rounded-full">
+              <X className="size-5" aria-hidden />
+            </button>
+          </div>
+          <form action="/buscar" onSubmit={() => setMenuOpen(false)} className="mb-6 flex gap-2">
+            <input type="search" name="q" aria-label="Buscar no menu" placeholder="Buscar produtos..." className="focus-ring min-w-0 flex-1 rounded-full border border-border bg-secondary px-4 py-3 text-sm" />
+            <button type="submit" aria-label="Buscar" className="focus-ring rounded-full border border-border p-3"><Search className="size-5" aria-hidden /></button>
+          </form>
+          <nav aria-label="Categorias no celular" className="flex flex-col gap-1">
+            {MENU.map((item) => <Link key={item.href} href={item.href} onClick={() => setMenuOpen(false)} aria-current={pathname === item.href ? 'page' : undefined} className="focus-ring rounded-xl px-4 py-3 text-sm hover:bg-secondary aria-[current=page]:bg-secondary">{item.label}</Link>)}
+          </nav>
+          <Link href={clientHref('')} onClick={() => setMenuOpen(false)} className="focus-ring mt-6 flex items-center gap-3 rounded-xl border border-border px-4 py-3 text-sm"><User className="size-5" aria-hidden />Minha Conta</Link>
+        </div>
+      </dialog>
     </>
   );
 }

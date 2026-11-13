@@ -61,6 +61,8 @@ export interface DadosSessao {
   papel: Papel;
   /** `exp` em segundos desde a epoch, como no JWT. */
   exp: number;
+  /** Identificador aleatorio: duas entradas nunca compartilham o mesmo token. */
+  sid?: string;
 }
 
 /** 7 dias. O mesmo prazo que o original usa para a sessao da cliente. */
@@ -74,6 +76,21 @@ export const DIAS_DE_SESSAO = 7;
  * chave que esta no codigo — e qualquer um forjaria um token de admin. Falhar
  * alto na primeira linha e o comportamento certo.
  */
+/**
+ * O segredo de sessao efetivo: SESSION_SECRET quando definido; senao, uma
+ * chave DERIVADA (HMAC) da credencial do banco — que ja e secreta e aleatoria.
+ * Nunca ha chave fixa no codigo: sem nenhum dos dois, continua lancando.
+ */
+export function segredoSessao(): string | undefined {
+  const s = process.env.SESSION_SECRET;
+  if (s && s.length >= 16) return s;
+  const banco = process.env.DATABASE_URL;
+  if (banco && banco.length > 20 && !banco.includes('ep-xxxx')) {
+    return createHmac('sha256', 'closet-lunna/sessao/v1').update(banco).digest('base64');
+  }
+  return undefined;
+}
+
 function chave(segredo: string | undefined): Buffer {
   if (!segredo || segredo.length < 16) {
     throw new Error(
@@ -115,7 +132,7 @@ export function criarToken(
 ): SessaoCriada {
   if (!dados.sub) throw new Error('Sessao sem `sub` — nao ha usuario para assinar.');
   const exp = Math.floor(agora / 1000) + Math.round(dias * 24 * 60 * 60);
-  const payload: DadosSessao = { sub: dados.sub, papel: dados.papel, exp };
+  const payload: DadosSessao = { sub: dados.sub, papel: dados.papel, exp, sid: randomBytes(24).toString('base64url') };
   const payloadB64 = base64url(Buffer.from(JSON.stringify(payload), 'utf8'));
   const token = `${payloadB64}.${assinar(payloadB64, segredo)}`;
   return { token, expiraEm: new Date(exp * 1000).toISOString() };
@@ -135,7 +152,7 @@ export function lerToken(
   segredo: string | undefined,
   agora: number = Date.now(),
 ): DadosSessao | null {
-  if (typeof token !== 'string' || !token) return null;
+  if (typeof token !== 'string' || !token || token.length > 4096) return null;
 
   const ponto = token.indexOf('.');
   if (ponto <= 0) return null;

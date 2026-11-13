@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Sparkles, X } from 'lucide-react';
 
 /**
@@ -29,34 +29,74 @@ import { Sparkles, X } from 'lucide-react';
  * artefatos — aqui e uma pagina de verdade, no disco.
  */
 const CHAVE = 'closet-lunar-popup-visto';
+let vistoNestaAba = false;
 
 export function LeadPopup() {
   const [aberto, setAberto] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (window.sessionStorage.getItem(CHAVE)) return;
-    const t = setTimeout(() => setAberto(true), 6000);
+    if (vistoNestaAba) return;
+    try {
+      if (window.sessionStorage.getItem(CHAVE)) return;
+    } catch {
+      // Storage can be unavailable; the in-memory flag still prevents repeats.
+    }
+    let t: ReturnType<typeof setTimeout>;
+    const mostrar = () => {
+      // Do not put an automatic promotion over a menu or another open dialog.
+      if (document.querySelector('dialog[open]')) {
+        t = setTimeout(mostrar, 1000);
+        return;
+      }
+      setAberto(true);
+    };
+    t = setTimeout(mostrar, 6000);
     return () => clearTimeout(t);
   }, []);
 
-  function fechar() {
+  const fechar = useCallback(() => {
+    vistoNestaAba = true;
     try {
       window.sessionStorage.setItem(CHAVE, '1');
     } catch {
       /* sessao privada pode recusar a escrita; o modal ainda fecha. */
     }
     setAberto(false);
-  }
+  }, []);
+
+  useEffect(() => {
+    const element = dialog.current;
+    if (!aberto || !element) return;
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement;
+    document.body.style.overflow = 'hidden';
+    element.showModal();
+    return () => {
+      element.close();
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
+    };
+  }, [aberto]);
 
   if (!aberto) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+    <dialog
+      ref={dialog}
+      aria-labelledby="lead-popup-title"
+      aria-describedby="lead-popup-description"
+      onCancel={(event) => { event.preventDefault(); fechar(); }}
+      onClose={fechar}
+      onClick={(event) => { if (event.target === event.currentTarget) fechar(); }}
+      className="m-auto max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-md overflow-y-auto rounded-lg border-0 bg-background p-0 text-foreground shadow-2xl backdrop:bg-black/50"
+    >
       <div className="relative w-full max-w-md overflow-hidden rounded-lg bg-background shadow-2xl">
         <button
           type="button"
+          autoFocus
           onClick={fechar}
           aria-label="Fechar"
           className="focus-ring absolute right-3 top-3 z-10 rounded p-1"
@@ -66,8 +106,8 @@ export function LeadPopup() {
 
         <div className="bg-secondary px-8 pb-6 pt-10 text-center">
           <Sparkles className="mx-auto mb-2 size-6 text-accent" aria-hidden />
-          <h2 className="font-serif text-3xl">Ganhe 10% OFF</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <h2 id="lead-popup-title" className="font-serif text-3xl">Ganhe 10% OFF</h2>
+          <p id="lead-popup-description" className="mt-2 text-sm text-muted-foreground">
             na sua primeira compra na Closet Lunar
           </p>
         </div>
@@ -115,9 +155,9 @@ export function LeadPopup() {
             não, obrigada
           </button>
 
-          {aviso && <p className="text-center text-xs italic text-muted-foreground">{aviso}</p>}
+          {aviso && <p role="status" className="text-center text-xs italic text-muted-foreground">{aviso}</p>}
         </form>
       </div>
-    </div>
+    </dialog>
   );
 }

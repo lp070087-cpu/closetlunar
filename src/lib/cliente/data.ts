@@ -35,6 +35,7 @@
  */
 
 import { getSession } from '@/lib/access';
+import { usuarioAtual } from '@/lib/auth/acoes';
 import { DEMO_AFFILIATES } from '@/lib/afiliadas/demo';
 import { DEMO_ORDERS_PEDIDOS } from '@/lib/pedidos/demo';
 import type { Order } from '@/lib/pedidos/types';
@@ -99,6 +100,20 @@ export interface Dataset<T> {
  * que o cabecalho escreve `Ola, lp070087@gmail.com` em vez de um nome.
  */
 export async function getConta(): Promise<Dataset<ContaCliente>> {
+  const usuario = await usuarioAtual();
+  if (usuario) {
+    return {
+      data: { id: usuario.id, email: usuario.email, nomeCompleto: usuario.nome, telefone: usuario.telefone },
+      source: 'database',
+    };
+  }
+  if (process.env.NODE_ENV === 'production' || process.env.DATABASE_URL) {
+    return {
+      data: { id: 'nao-autenticado', email: '', nomeCompleto: null, telefone: null },
+      source: 'demo',
+      reason: 'Sessão autenticada necessária para consultar a conta.',
+    };
+  }
   const sessao = getSession();
   return {
     data: { id: 'cliente-demo', email: sessao.email, nomeCompleto: null, telefone: null },

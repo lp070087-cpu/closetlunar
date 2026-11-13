@@ -169,7 +169,7 @@ if (fonteOriginal === null) {
     ['Minhas Medidas', 'o titulo do painel'],
     ['Mantenha seu perfil atualizado para recomendações precisas no', 'a descricao'],
     ['Provador Virtual', 'o trecho destacado da descricao'],
-    ['Ver no Avatar 3D', 'o botao do cabecalho'],
+    ['Ver no Avatar', 'o botao do visualizador ilustrativo'],
     ['Tamanho de costume', 'o rotulo do primeiro select'],
     ['Preferência de caimento', 'o rotulo do segundo select'],
     ['Selecione —', 'a opcao vazia do tamanho'],
@@ -181,7 +181,7 @@ if (fonteOriginal === null) {
     ['Ex: 6 meses, 2 anos', 'o exemplo do campo condicional'],
     ['Sabe informar suas medidas?', 'a segunda pergunta sim/nao'],
     ['(busto, cintura, quadril)', 'a linha de apoio da segunda pergunta'],
-    ['Última recomendação', 'o rotulo do cartao escuro'],
+    ['Última recomendação', 'o cartao exibe tamanho informado, sem inventar recomendacao', 'Tamanho informado no perfil'],
     ['Aguardando dados', 'o ramo sem tamanho do cartao escuro'],
     ['Complete seu perfil', 'o ramo sem data do cartao escuro'],
     ['Vantagens VIP', 'o rotulo do cartao claro'],
@@ -190,9 +190,9 @@ if (fonteOriginal === null) {
     ['Nenhum registro anterior encontrado.', 'a frase do historico vazio'],
     ['Altura, peso e idade são obrigatórios.', 'a mensagem de validacao'],
   ];
-  for (const [texto, nome] of declaracoes) {
+  for (const [texto, nome, textoAtual = texto] of declaracoes) {
     const noOriginal = fonteOriginal.includes(texto);
-    const naTela = fonteView.includes(texto);
+    const naTela = fonteView.includes(textoAtual);
     if (noOriginal && naTela) ok(`${nome}: declarado nos dois`, `"${texto}"`);
     else fail(`${nome}`, `original: ${noOriginal} · tela: ${naTela}`);
   }
@@ -293,8 +293,8 @@ else fail('o destaque da descricao', 'a descricao perdeu o `<span>` do original'
  * `openFitting`/`useFittingRoom` e a presenca do desenho (`h-12`, `rounded-full`,
  * `bg-foreground`) e do `Sparkles`.
  */
-if (/Ver no Avatar 3D/.test(fonteView) && /Sparkles className="size-4"/.test(fonteView))
-  ok('o botao `VER NO AVATAR 3D` esta desenhado', 'com o `Sparkles` do original');
+if (/Ver no Avatar/.test(fonteView) && !/Ver no Avatar 3D/.test(fonteView) && /Sparkles className="size-4"/.test(fonteView) && /setAvatarAberto\(true\)/.test(fonteView))
+  ok('o botao abre o visualizador sem prometer 3D', 'ilustracao 2D com medidas preenchidas');
 else fail('o botao do cabecalho', 'o botao perdeu o texto ou o icone do original');
 
 if (/h-12 items-center justify-center gap-2 rounded-full bg-foreground/.test(fonteView))
@@ -312,7 +312,7 @@ console.log('\n3. o formulario — os dois selects, os dois sim/nao, o condicion
 const desenhoForm = [
   [/grid grid-cols-2 gap-6 sm:grid-cols-3/, 'a grade de 6 campos (2 no mobile, 3 no desktop)'],
   [/type="number"/, 'o campo e numerico'],
-  [/step="0\.1"/, 'o passo decimal do original'],
+  [/step=\{f\.key === 'age' \? '1' : '0\.1'\}/, 'idade inteira e passo decimal nas medidas'],
   [/Tamanho de costume/, 'o primeiro select'],
   [/Preferência de caimento/, 'o segundo select'],
   [/SALVAR PERFIL DE MEDIDAS|Salvar Perfil de Medidas/i, 'o botao de salvar'],

@@ -54,16 +54,17 @@ export function AvatarPreview({ avatar }: { avatar: AvatarSettings }) {
     .filter((slot) => slot.key !== 'g360')
     .map((slot) => ({ value: slot.key, label: VIEW_SHORT_LABELS[slot.key] ?? slot.key }));
   const slotAtual = avatar.slots.find((slot) => slot.key === vista) ?? avatar.slots[0];
+  const imagemAtual = slotAtual?.url || (vista === 'frente' ? '/site/avatar-provador.png' : null);
 
   return (
     <div className="relative flex min-h-[34rem] flex-col overflow-hidden rounded-3xl bg-foreground">
       {/* A FOTO (ou o vazio dela). `flex-1` para o rodape ficar colado embaixo. */}
       <div className="relative grid flex-1 place-items-center px-6 py-10">
-        {slotAtual?.url ? (
+        {imagemAtual ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
-            src={slotAtual.url}
-            alt={`Avatar — ${slotAtual.label}`}
+            src={imagemAtual}
+            alt={`Avatar ilustrativo - ${slotAtual?.label ?? 'Frente'}`}
             className="max-h-[26rem] w-auto object-contain"
           />
         ) : (
@@ -132,14 +133,14 @@ export function AvatarPreview({ avatar }: { avatar: AvatarSettings }) {
       <div className="flex flex-col items-center gap-4 px-6 pb-6">
         <span className="inline-flex items-center gap-2 rounded-full border border-background/15 px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-background/55">
           <RotateCcw className="size-3" aria-hidden />
-          Arraste para girar
+          Prévia 2D · selecione uma vista
         </span>
 
         {/**
          * AS QUATRO VISTAS — pilulas claras sobre o preto. Ativa = preenchida de
          * branco; inativa = contorno claro. `aria-pressed` e o que a bancada le.
          */}
-        <div role="group" className="flex flex-wrap items-center justify-center gap-2">
+        <div role="group" aria-label="Vistas ilustrativas do avatar" className="flex flex-wrap items-center justify-center gap-2">
           {vistas.map((item) => {
             const ativo = item.value === vista;
             return (
@@ -163,7 +164,7 @@ export function AvatarPreview({ avatar }: { avatar: AvatarSettings }) {
 
         <span className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-background/45">
           <span className="size-1.5 rounded-full bg-success" aria-hidden />
-          Preview em tempo real
+          Imagem ilustrativa · rotação 3D indisponível
         </span>
       </div>
     </div>

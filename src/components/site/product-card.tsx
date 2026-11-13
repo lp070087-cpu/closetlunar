@@ -1,4 +1,7 @@
+'use client';
+
 import Link from 'next/link';
+import { useStoreWhatsApp, whatsappLinkFor } from '@/lib/site/whatsapp';
 import { Heart, MessageCircle } from 'lucide-react';
 import { BotaoComprar } from './botao-comprar';
 import { effectivePrice, discountPercent, strikethroughPrice } from '@/lib/produtos/metrics';
@@ -45,6 +48,7 @@ import { formatBRL } from '@/lib/utils';
  * proibe. O de WhatsApp e o unico dos dois que FAZ algo — abre o `wa.me`.
  */
 export function ProductCard({ product }: { product: Product }) {
+  const whatsapp = useStoreWhatsApp();
   const preco = effectivePrice(product);
   const riscado = strikethroughPrice(product);
   const desconto = riscoEfetivo(product) ? discountPercent(product.price, preco) : 0;
@@ -53,7 +57,7 @@ export function ProductCard({ product }: { product: Product }) {
   const selos: { label: string; tom: 'escuro' | 'claro' }[] = [];
   if (desconto > 0) selos.push({ label: `-${desconto}%`, tom: 'escuro' });
   if (product.stock > 0 && product.stock <= 3) selos.push({ label: 'Últimas peças', tom: 'claro' });
-  else if (product.featured) selos.push({ label: 'Best Seller', tom: 'claro' });
+  else if (product.featured) selos.push({ label: 'Destaque', tom: 'claro' });
 
   const foto = product.images[0]?.url ?? '';
   const ordem = ['PP', 'P', 'M', 'G', 'GG', 'XG'];
@@ -157,21 +161,22 @@ export function ProductCard({ product }: { product: Product }) {
             {formatBRL(preco)}
           </span>
           <span className="text-[11px] text-muted-foreground">
-            ou 6x de {formatBRL(preco / 6)} sem juros
+            Condições de pagamento a definir
           </span>
         </div>
 
         <div className="mt-2 flex min-w-0 flex-col gap-1.5 md:gap-2">
           <BotaoComprar product={product} className="w-full" />
-          <Link
-            href={linkDuvida(product)}
+          <a
+            href={linkDuvida(product, whatsapp)}
+            aria-disabled={!whatsapp}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-full border border-border bg-background py-2 text-[9px] font-medium uppercase leading-tight tracking-[0.08em] text-foreground transition-colors hover:border-foreground md:py-2.5 md:text-[11px] md:tracking-[0.15em]"
           >
             <MessageCircle className="size-3.5 shrink-0" aria-hidden />
-            <span className="truncate">Tirar dúvida pelo WhatsApp</span>
-          </Link>
+            <span className="truncate">{whatsapp ? "Tirar dúvida pelo WhatsApp" : "Contato indisponível"}</span>
+          </a>
         </div>
       </div>
     </article>
@@ -198,9 +203,6 @@ function riscoEfetivo(product: Pick<Product, 'price' | 'promoPrice' | 'compareAt
  * ja preenchidos — e o link do produto aponta para `/produto/<slug>`, que a Fase
  * 3 cria. Sem numero configurado, cai no `wa.me` puro, e nao num link quebrado.
  */
-function linkDuvida(product: Product): string {
-  const texto = encodeURIComponent(
-    `Olá! Gostaria de tirar uma dúvida sobre o produto ${product.name}.`,
-  );
-  return `https://wa.me/?text=${texto}`;
+function linkDuvida(product: Product, phone: string): string | undefined {
+  return whatsappLinkFor(phone, `Olá! Gostaria de tirar uma dúvida sobre o produto ${product.name}.`);
 }

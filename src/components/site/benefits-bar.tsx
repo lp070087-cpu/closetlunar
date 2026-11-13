@@ -52,6 +52,7 @@ export function BenefitsBar({ benefits }: { benefits: Benefit[] }) {
 
   return (
     <section className="border-y border-border bg-background">
+      <p className="px-4 pt-3 text-center text-[10px] text-muted-foreground">Benefícios ilustrativos — condições comerciais a confirmar com a loja.</p>
       <div className="container mx-auto grid grid-cols-2 gap-6 px-4 py-6 md:grid-cols-5">
         {itens.map((b) => {
           const Icone = ICONES[b.iconName] ?? Truck;

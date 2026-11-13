@@ -1,7 +1,10 @@
 /**
  * O DOMINIO DE PAGAMENTO — a abstracao, e SO a abstracao.
  *
- * ================== NAO HA GATEWAY, E NAO E POR FALTA DE TRABALHO ==================
+ * ATUALIZACAO: o gateway escolhido e a InfinitePay (ver infinitepay.ts, checkout.ts,
+ * confirmar.ts). O texto historico abaixo descreve a fase anterior.
+ *
+ * ================== (HISTORICO) NAO HAVIA GATEWAY ==================
  *
  * A decisao do proprietario e explicita: a forma de pagamento ainda sera
  * escolhida. Entao **nenhum gateway concreto e implementado** — nao ha Stripe,
@@ -83,12 +86,15 @@ export interface PaymentProvider {
  * `externalId` generico e ja tem os quatro estados.
  */
 export function providerAtual(): PaymentProvider | null {
+  // A integracao real vive em infinitepay.ts / checkout.ts / confirmar.ts
+  // (Checkout Integrado: link + webhook + payment_check). Esta interface
+  // generica fica para uma eventual troca de gateway.
   return null;
 }
 
 /** Ha gateway configurado? — o que as telas usam para decidir o texto. */
 export function temGateway(): boolean {
-  return providerAtual() !== null;
+  return true;
 }
 
 /**
@@ -98,10 +104,10 @@ export function temGateway(): boolean {
  * admin digam a MESMA coisa. Tres redacoes diferentes do mesmo aviso fariam a
  * cliente achar que sao tres problemas.
  */
-export const AVISO_GATEWAY = 'O pagamento entra na fase de integração — o gateway ainda não foi definido.';
+export const AVISO_GATEWAY = 'Pagamento processado pela InfinitePay (Pix ou cartão).';
 
 /** O rotulo curto, para o status do projeto. */
-export const ESTADO_PAGAMENTO_PROJETO = 'PREPARADO — GATEWAY A DEFINIR PELO PROPRIETÁRIO';
+export const ESTADO_PAGAMENTO_PROJETO = 'ATIVO — INFINITEPAY CHECKOUT INTEGRADO';
 
 /**
  * O estado do PEDIDO a partir do estado do PAGAMENTO.

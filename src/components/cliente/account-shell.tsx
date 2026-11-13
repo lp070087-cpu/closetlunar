@@ -1,7 +1,8 @@
 'use client';
 
 import { createContext, useContext, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { sair as encerrarSessao } from '@/lib/auth/acoes';
 import { LogOut } from 'lucide-react';
 import { SIGN_OUT_LABEL } from '@/lib/cliente/nav';
 import { AccountMobileNav } from './account-mobile-nav';
@@ -122,11 +123,14 @@ export interface AccountShellProps {
   /** Saudacao ja resolvida (`Olá, lp070087@gmail.com`). Ver `saudacao()`. */
   saudacao: string;
   children: React.ReactNode;
+  demo?: boolean;
 }
 
-export function AccountShell({ saudacao, children }: AccountShellProps) {
+export function AccountShell({ saudacao, children, demo = true }: AccountShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [dentro, setDentro] = useState(true);
+  const [erroSaida, setErroSaida] = useState<string | null>(null);
 
   /**
    * ================== O PORTAO: A ENTRADA VIVE AQUI, E NAO NUMA ROTA ==================
@@ -163,11 +167,19 @@ export function AccountShell({ saudacao, children }: AccountShellProps) {
    * mentiria — e pior, porque pareceria um logout de verdade.
    */
   async function sair() {
-    setDentro(false);
+    try {
+      await encerrarSessao();
+      setDentro(false);
+      router.replace('/entrar');
+      router.refresh();
+    } catch {
+      setErroSaida('Não foi possível sair da conta. Tente novamente.');
+    }
   }
 
   function entrar() {
     setDentro(true);
+    router.refresh();
   }
 
   /*
@@ -189,7 +201,7 @@ export function AccountShell({ saudacao, children }: AccountShellProps) {
         <main className="flex-1">
           <CustomerLogin onEntrar={entrar} />
           <p className="mx-auto mb-10 max-w-md px-4 text-center text-xs text-muted-foreground">
-            Entrar ainda não encerra sessão nem cria uma: a autenticação real entra na fase de integração.
+            O acesso depende da autenticação confirmada pelo servidor.
           </p>
         </main>
         <StoreFooter />
@@ -206,6 +218,10 @@ export function AccountShell({ saudacao, children }: AccountShellProps) {
     */
     <div data-cliente-area className="flex min-h-screen flex-col bg-background">
       <StoreHeader />
+      <p role="status" className="mx-3 mt-4 rounded-xl border border-border px-4 py-3 text-sm text-muted-foreground">
+        {demo ? 'Demonstração de desenvolvimento: dados de exemplo, sem persistência.' : 'Sua identidade está autenticada. Pedidos, endereços, medidas, clube e demais módulos ainda exibem exemplos demonstrativos e não representam seus registros reais.'}
+      </p>
+      {erroSaida && <p role="alert" className="px-4 py-2 text-sm text-danger">{erroSaida}</p>}
 
       {/*
         `overflow-x-clip` — e NAO `overflow-x-hidden`.
@@ -243,14 +259,14 @@ export function AccountShell({ saudacao, children }: AccountShellProps) {
           <button
             type="button"
             onClick={sair}
-            className="focus-ring flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-background px-6 py-3 text-sm font-medium text-danger shadow-soft md:hidden"
+            className="focus-ring flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-background px-6 py-3 text-sm font-medium text-danger shadow-soft lg:hidden"
           >
             <LogOut className="size-4" aria-hidden />
             {SIGN_OUT_LABEL}
           </button>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[260px_1fr] lg:gap-10">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10">
           <AccountMobileNav pathname={pathname} />
 
           <aside className="hidden lg:block">

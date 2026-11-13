@@ -41,10 +41,10 @@ export function FaixaEscura({ imagem = '/site/essencia.jpg' }: { imagem?: string
             intenção.
           </p>
           <Link
-            href="/categoria/promocoes"
+            href="/buscar"
             className="inline-flex items-center gap-2 rounded-full bg-background px-8 py-3.5 text-sm tracking-[0.15em] text-foreground transition-all hover:gap-3"
           >
-            Aproveitar promoções <ArrowRight className="size-4" aria-hidden />
+            Explorar coleção <ArrowRight className="size-4" aria-hidden />
           </Link>
         </div>
         <div className="relative order-2 mx-auto aspect-[4/5] w-full max-w-md overflow-hidden rounded-2xl border border-background/10 shadow-elegant md:ml-auto md:mr-0">

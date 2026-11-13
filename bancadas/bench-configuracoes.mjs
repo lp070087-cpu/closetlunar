@@ -384,7 +384,7 @@ const telaEnvio = render(ShippingSection, {
 });
 const tEnvio = textos(telaEnvio);
 
-if (tEnvio.includes('Melhor Envio') && tEnvio.includes('Credenciais, remetente e conexão OAuth oficial.'))
+if (tEnvio.includes('Melhor Envio') && tEnvio.includes('Integração pendente. Nenhuma cotação ou conexão OAuth está disponível.'))
   ok('o titulo e o subtitulo do cartao', '');
 else fail('cabecalho do cartao', tEnvio.slice(0, 200));
 
@@ -398,12 +398,12 @@ if (faltando.length === 0)
   ok('os SETE campos do print', 'Client ID · Secret · CEP · Remetente · Documento · Telefone · Endereco');
 else fail('campos', `faltam: ${faltando.join(', ')}`);
 
-if (tEnvio.includes('Melhor Envio conectado') && tEnvio.includes('Desconectar') && tEnvio.includes('desde'))
-  ok('o cartao verde de conexao com o `Desconectar`', 'estado `ok` da demonstracao');
+if (demo.DEMO_CONNECTION.status === 'off' && tEnvio.includes('Melhor Envio não conectado') && !tEnvio.includes('Desconectar'))
+  ok('a demonstracao nao simula uma conexao OAuth', 'desconectado ate integrar credenciais reais');
 else fail('cartao de conexao', '');
 
-if (tEnvio.includes('Callback URL') && tEnvio.includes(CALLBACK_URL))
-  ok('a `Callback URL` com o endereco do print', 'registrar no Melhor Envio, nao configurar aqui');
+if (tEnvio.includes('Callback OAuth:') && tEnvio.includes(CALLBACK_URL) && !/^https?:/.test(CALLBACK_URL))
+  ok('o callback informa indisponibilidade sem inventar endpoint', 'OAuth ainda nao implementado');
 else fail('callback', '');
 
 if (tEnvio.includes('Testar frete') && tEnvio.includes('CEP de destino') && tEnvio.includes('Testar Frete'))
@@ -445,8 +445,8 @@ const telaPag = render(PaymentsTab, {
 });
 const tPag = textos(telaPag);
 
-if (tPag.includes('InfinitePay') && tPag.includes('Configure as credenciais para receber PIX e cartão na loja.'))
-  ok('o titulo e o subtitulo do cartao', '');
+if (/Pagamentos [—-] gateway a definir/.test(tPag) && tPag.includes('Nenhuma cobrança está habilitada.') && !tPag.includes('InfinitePay'))
+  ok('nenhum gateway e escolhido antes da decisao do proprietario', 'cobrancas desabilitadas');
 else fail('cabecalho do pagamento', tPag.slice(0, 200));
 
 const camposPag = ['API Key / Token', 'Client ID', 'Client Secret', 'Webhook Secret'];
@@ -459,9 +459,9 @@ if (tPag.includes('Modo teste (sandbox)') && tPag.includes('Ativo no checkout'))
   ok('os dois checkboxes', '');
 else fail('checkboxes do pagamento', '');
 
-if (tPag.includes('Webhook URL') && tPag.includes(WEBHOOK_URL) &&
-    tPag.includes('Cole esta URL no painel InfinitePay (notificações/webhooks).'))
-  ok('o bloco de webhook com a instrucao', '');
+if (tPag.includes('Webhook URL') && tPag.includes(WEBHOOK_URL) && !/^https?:/.test(WEBHOOK_URL) &&
+    /<fieldset[^>]*disabled/.test(telaPag))
+  ok('o webhook nao inventa endpoint e as credenciais estao bloqueadas', '');
 else fail('webhook', '');
 
 if (tPag.includes('Salvar configurações') && tPag.includes('Testar conexão'))

@@ -1,6 +1,7 @@
 import { AccountLayoutClient } from './layout-client';
 import { getConta } from '@/lib/cliente/data';
 import { saudacao } from '@/lib/cliente/metrics';
+import { exigirPapel } from '@/lib/auth/guardas';
 
 /**
  * Layout da AREA DA CLIENTE.
@@ -20,8 +21,9 @@ export const metadata = {
 };
 
 export default async function ContaLayout({ children }: { children: React.ReactNode }) {
+  const sessao = await exigirPapel('cliente', '/entrar');
   const { data: conta } = await getConta();
   const texto = saudacao(conta);
 
-  return <AccountLayoutClient saudacao={texto}>{children}</AccountLayoutClient>;
+  return <AccountLayoutClient saudacao={texto} demo={sessao.demo}>{children}</AccountLayoutClient>;
 }

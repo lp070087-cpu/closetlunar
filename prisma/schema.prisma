@@ -285,7 +285,7 @@ model ProductColorImage {
 model StockMovement {
   id          String       @id @default(cuid())
   at          DateTime     @default(now())
-  productId   String
+  productId   String?
   /// Nome copiado no movimento: o historico registra o que foi movimentado,
   /// mesmo que a peca mude de nome depois.
   productName String

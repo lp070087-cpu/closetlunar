@@ -38,6 +38,7 @@ export function WhatsAppView() {
   const [config, setConfig] = useState<WhatsAppConfig | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
     let ativo = true;
@@ -45,7 +46,7 @@ export function WhatsAppView() {
       if (!ativo) return;
       setTickets(t.data);
       setConfig(c.data);
-    });
+    }).catch(() => { if (ativo) setErro('Não foi possível carregar o WhatsApp. Recarregue a página.'); });
     return () => {
       ativo = false;
     };
@@ -60,13 +61,18 @@ export function WhatsAppView() {
   async function salvar() {
     if (!config) return;
     setSalvando(true);
-    const resultado = await saveConfig(config);
-    setSalvando(false);
-    setAviso(
+    try {
+      const resultado = await saveConfig(config);
+      setAviso(
       resultado.persisted
         ? 'Configurações salvas!'
         : 'Configurações não foram gravadas: o banco (Neon) ainda não está conectado.',
     );
+    } catch {
+      setAviso('Não foi possível salvar. Nenhuma alteração foi confirmada.');
+    } finally {
+      setSalvando(false);
+    }
   }
 
   const carregando = tickets === null || config === null;
@@ -79,7 +85,8 @@ export function WhatsAppView() {
         action={<WhatsAppTabs value={tab} onChange={setTab} />}
       />
 
-      {carregando ? (
+      <p className="rounded-xl border border-border bg-secondary/30 p-3 text-xs text-muted-foreground">Demonstração: configurações não persistem e mensagens automáticas não são enviadas.</p>
+      {erro ? <p role="alert" className="text-sm text-danger">{erro}</p> : carregando ? (
         <p className="text-sm text-muted-foreground">Carregando...</p>
       ) : tab === 'tickets' ? (
         <TicketsTab tickets={tickets} />

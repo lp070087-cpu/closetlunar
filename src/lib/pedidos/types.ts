@@ -226,6 +226,8 @@ export interface Order {
   /** ISO 8601 completo. O cartao separa em data e hora. */
   placedAt: string;
   status: OrderStatus;
+  /** Estado neutro do pagamento: pendente | processando | pago | recusado. */
+  paymentStatus?: string;
   items: OrderItem[];
   payment: OrderPayment;
   shipping: OrderShipping;

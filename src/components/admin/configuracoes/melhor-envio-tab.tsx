@@ -11,7 +11,7 @@ import type {
 } from '@/lib/configuracoes/types';
 
 /** O lugar onde a loja registra o callback — o endereço que o print mostra. */
-export const CALLBACK_URL = 'https://closetlunar.lovable.app/api/melhor-envio/callback';
+export const CALLBACK_URL = 'Callback indisponível: OAuth ainda não implementado';
 
 /**
  * A seção de transportadoras — as DUAS abas `MELHOR ENVIO` (adm-143/144) e
@@ -96,7 +96,7 @@ export function ShippingSection({
           <div>
             <h3 className="text-sm font-bold">Melhor Envio</h3>
             <p className="text-xs text-muted-foreground">
-              Credenciais, remetente e conexão OAuth oficial.
+              Integração pendente. Nenhuma cotação ou conexão OAuth está disponível.
             </p>
           </div>
           <div className="flex items-center gap-5">
@@ -108,7 +108,7 @@ export function ShippingSection({
             <Checkbox
               checked={form.active}
               onChange={(event) => setForm({ ...form, active: event.target.checked })}
-              label="Ativo"
+              disabled label="Ativo"
             />
           </div>
         </div>
@@ -153,7 +153,7 @@ export function ShippingSection({
             <Field label="Client Secret">
               <Input
                 type="password"
-                value={form.clientSecret}
+                disabled autoComplete="off" value={form.clientSecret}
                 onChange={(event) => setForm({ ...form, clientSecret: event.target.value })}
                 placeholder="••••••••"
               />
@@ -211,7 +211,7 @@ export function ShippingSection({
 
         <div className="mt-5 border-t border-border pt-4">
           <p className="text-[11px] text-muted-foreground">
-            Callback URL (registre exatamente esta no Melhor Envio):
+            Callback OAuth:
           </p>
           <code className="mt-1 block break-all text-[11px] text-muted-foreground">
             {CALLBACK_URL}
@@ -223,7 +223,7 @@ export function ShippingSection({
             Testar frete
           </p>
           <div className="mt-2 flex flex-wrap items-end gap-3">
-            <Field label="CEP de destino" className="min-w-[16rem] flex-1">
+            <Field label="CEP de destino" className="min-w-0 flex-1">
               <Input
                 value={destino}
                 onChange={(event) => setDestino(event.target.value)}

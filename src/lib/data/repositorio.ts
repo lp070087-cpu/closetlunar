@@ -107,14 +107,10 @@ export async function escrever<T>(
 
 /** Uma mensagem curta e sem vazamento — nunca o stack, nunca a query. */
 function mensagemCurta(e: unknown): string {
-  if (e instanceof Error && e.message) {
-    // Uma mensagem do Prisma costuma trazer a QUERY e os PARAMETROS. Corta no
-    // primeiro `\n` e limita o tamanho: o suficiente para diagnosticar, e sem
-    // despejar dado da cliente na tela (a regra de nao vazar SQL).
-    const primeira = e.message.split('\n')[0].slice(0, 160);
-    return primeira;
-  }
-  return 'erro desconhecido';
+  // Mesmo a primeira linha pode conter credenciais, SQL ou dados pessoais.
+  // A interface recebe somente um motivo seguro, nunca mensagens do driver.
+  void e;
+  return 'Não foi possível acessar os dados. Tente novamente mais tarde.';
 }
 
 /**

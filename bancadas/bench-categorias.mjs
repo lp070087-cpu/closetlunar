@@ -416,12 +416,18 @@ for (const f of arquivos) {
       supressoes += 1;
       fail('supressao de tipo', `${f.replace(raizProjeto + '\\', '')}:${i + 1}`);
     }
-    // `: any` e `as any` — o `any` que esconde o problema.
-    if (/[:<]\s*any\b|as any\b/.test(linha) && !/Array\.from|\.map\(/.test(linha)) {
-      supressoes += 1;
-      fail('any', `${f.replace(raizProjeto + '\\', '')}:${i + 1} — ${linha.trim().slice(0, 70)}`);
-    }
   });
+  // Inspect syntax, not prose examples inside documentation comments.
+  const fonte = ts.createSourceFile(f, texto, ts.ScriptTarget.Latest, true);
+  function visitar(node) {
+    if (node.kind === ts.SyntaxKind.AnyKeyword) {
+      supressoes += 1;
+      const { line } = fonte.getLineAndCharacterOfPosition(node.getStart(fonte));
+      fail('any', `${f.replace(raizProjeto + '\\', '')}:${line + 1}`);
+    }
+    ts.forEachChild(node, visitar);
+  }
+  visitar(fonte);
 }
 if (supressoes === 0) ok('nenhum @ts-ignore / @ts-expect-error / any no projeto', `${arquivos.length} arquivos`);
 

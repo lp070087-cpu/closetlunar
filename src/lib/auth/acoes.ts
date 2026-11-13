@@ -31,10 +31,9 @@ import { cache } from 'react';
 import {
   COOKIE_SESSAO,
   ATRIBUTOS_COOKIE,
-  DIAS_DE_SESSAO,
   criarToken,
   hashTokenOpaco,
-  novoTokenOpaco,
+  segredoSessao,
 } from './sessao';
 import { hashSenha, verificarSenha, MINIMO_SENHA } from './senha';
 import {
@@ -54,7 +53,6 @@ export interface ResultadoAcao {
   /** Para onde ir quando der certo. O cliente redireciona. */
   destino?: string;
 }
-
 /** A linha de usuario que a autenticacao le. O minimo — sem `select *`. */
 interface UsuarioAutenticavel {
   id: string;
@@ -91,54 +89,45 @@ export async function entrar(dados: {
   email: string;
   senha: string;
   exigirPapel?: Papel;
+  manterConectado?: boolean;
 }): Promise<ResultadoAcao> {
+  if (!dados || typeof dados.email !== 'string' || dados.email.length > 254 ||
+      typeof dados.senha !== 'string' || !dados.senha || dados.senha.length > 1024 ||
+      (dados.exigirPapel !== undefined && dados.exigirPapel !== 'admin' && dados.exigirPapel !== 'cliente')) {
+    return { ok: false, motivo: CREDENCIAL_INVALIDA };
+  }
   if (!temBanco()) {
     return { ok: false, motivo: MOTIVO_SEM_BANCO };
   }
 
-  const email = normalizarEmail(dados.email);
-  const usuario = await lerUsuarioPorEmail(email);
-  const decisao = decidirEntrada(usuario, dados.senha, verificarSenha, dados.exigirPapel);
-
-  if (!decisao.ok) return { ok: false, motivo: decisao.motivo };
-
-  // O cookie e assinado. O `sub` e o ID, e nunca o e-mail: um id nao muda
-  // quando a cliente troca de e-mail, e nao carrega dado pessoal no cookie.
-  const { token, expiraEm } = criarToken({ sub: decisao.id, papel: decisao.papel }, process.env.SESSION_SECRET);
-
-  const jar = await cookies();
-  jar.set(COOKIE_SESSAO, token, {
-    ...ATRIBUTOS_COOKIE,
-    expires: new Date(expiraEm),
-  });
-
-  /*
-    A LINHA DE SESSAO. O token do cookie prova que a sessao e nossa; esta linha
-    e o que permite REVOGAR (encerrar em todos os aparelhos), porque uma lista
-    que o servidor controla pode ser apagada, e um token auto-contido nao pode
-    ser invalidado antes de expirar.
-  */
-  const opaco = novoTokenOpaco();
   try {
-    const cliente = db();
-    if (cliente) {
-      await cliente.userSession.create({
-        data: {
-          userId: decisao.id,
-          tokenHash: opaco.hash,
-          expiresAt: new Date(expiraEm),
-        },
-      });
-    }
-  } catch {
-    /*
-      Falhar ao gravar a LISTA nao impede o login: a sessao assinada ja vale.
-      O custo e que esta sessao nao podera ser revogada antes de expirar — um
-      custo menor que recusar a entrada por causa de um registro auxiliar.
-    */
-  }
+    const email = normalizarEmail(dados.email);
+    const usuario = await lerUsuarioPorEmail(email);
+    const decisao = decidirEntrada(usuario, dados.senha, verificarSenha, dados.exigirPapel);
+    if (decisao.ok === false) return { ok: false, motivo: decisao.motivo };
 
-  return { ok: true, destino: decisao.papel === 'admin' ? '/admin' : '/conta' };
+    const { token, expiraEm } = criarToken(
+      { sub: decisao.id, papel: decisao.papel }, segredoSessao(),
+    );
+    const cliente = db();
+    if (!cliente) return { ok: false, motivo: MOTIVO_SEM_BANCO };
+    // Persistir o hash do MESMO token antes de entregar o cookie.
+    await cliente.userSession.create({
+      data: {
+        userId: decisao.id,
+        tokenHash: hashTokenOpaco(token),
+        expiresAt: new Date(expiraEm),
+      },
+    });
+    const jar = await cookies();
+    jar.set(COOKIE_SESSAO, token, {
+      ...ATRIBUTOS_COOKIE,
+      ...(dados.manterConectado === false ? {} : { expires: new Date(expiraEm) }),
+    });
+    return { ok: true, destino: decisao.papel === 'admin' ? '/admin' : '/conta' };
+  } catch {
+    return { ok: false, motivo: 'Não foi possível entrar. Tente novamente mais tarde.' };
+  }
 }
 
 /**
@@ -153,6 +142,12 @@ export async function cadastrar(dados: {
   senha: string;
   telefone?: string;
 }): Promise<ResultadoAcao> {
+  if (!dados || typeof dados.nome !== 'string' || dados.nome.length > 200 ||
+      typeof dados.email !== 'string' || dados.email.length > 254 ||
+      typeof dados.senha !== 'string' || dados.senha.length > 1024 ||
+      (dados.telefone !== undefined && (typeof dados.telefone !== 'string' || dados.telefone.length > 40))) {
+    return { ok: false, motivo: 'Confira os dados do cadastro.' };
+  }
   const invalido = validarCadastro(dados, MINIMO_SENHA);
   if (invalido) return { ok: false, motivo: invalido.motivo };
 
@@ -161,43 +156,43 @@ export async function cadastrar(dados: {
   const cliente = db();
   if (!cliente) return { ok: false, motivo: MOTIVO_SEM_BANCO };
 
-  const email = normalizarEmail(dados.email);
+  try {
+    const email = normalizarEmail(dados.email);
+    const existente = await cliente.user.findUnique({ where: { email }, select: { id: true } });
+    if (existente) return { ok: false, motivo: CREDENCIAL_INVALIDA };
 
-  const existente = await cliente.user.findUnique({ where: { email }, select: { id: true } });
-  if (existente) {
-    /*
-      A mensagem e a MESMA de credencial invalida. Distinguir "este e-mail ja
-      tem conta" de "cadastro ok" entrega a quem sonda uma lista de e-mails
-      cadastrados — o mesmo risco do login.
-    */
-    return { ok: false, motivo: CREDENCIAL_INVALIDA };
+    const passwordHash = hashSenha(dados.senha);
+    // Cadastro e sessao sao atomicos: falhar ao gravar a sessao desfaz a conta.
+    const sessaoCriada = await cliente.$transaction(async (
+      transacao: Pick<NonNullable<ReturnType<typeof db>>, 'user' | 'userSession'>,
+    ) => {
+      const criado = await transacao.user.create({
+        data: {
+          email,
+          name: dados.nome.trim(),
+          phone: dados.telefone?.trim() ?? '',
+          passwordHash,
+          role: 'cliente', // Cadastro publico nunca atribui acesso administrativo.
+          isActive: true,
+        },
+        select: { id: true, role: true },
+      });
+      const { token, expiraEm } = criarToken(
+        { sub: criado.id, papel: papelDe(criado.role) }, segredoSessao(),
+      );
+      await transacao.userSession.create({
+        data: { userId: criado.id, tokenHash: hashTokenOpaco(token), expiresAt: new Date(expiraEm) },
+      });
+      return { token, expiraEm };
+    });
+    const jar = await cookies();
+    jar.set(COOKIE_SESSAO, sessaoCriada.token, {
+      ...ATRIBUTOS_COOKIE, expires: new Date(sessaoCriada.expiraEm),
+    });
+    return { ok: true, destino: '/conta' };
+  } catch {
+    return { ok: false, motivo: 'Não foi possível concluir o cadastro. Tente novamente mais tarde.' };
   }
-
-  // O hash AQUI, no servidor. A senha em texto existe so neste escopo.
-  const passwordHash = hashSenha(dados.senha);
-
-  const criado = await cliente.user.create({
-    data: {
-      email,
-      name: dados.nome.trim(),
-      phone: dados.telefone?.trim() ?? '',
-      passwordHash,
-      // Papel `cliente` SEMPRE. Cadastro publico nunca cria admin — o papel
-      // privilegiado so se atribui por dentro do painel.
-      role: 'cliente',
-      isActive: true,
-    },
-    select: { id: true, role: true },
-  });
-
-  const { token, expiraEm } = criarToken(
-    { sub: criado.id, papel: papelDe(criado.role) },
-    process.env.SESSION_SECRET,
-  );
-  const jar = await cookies();
-  jar.set(COOKIE_SESSAO, token, { ...ATRIBUTOS_COOKIE, expires: new Date(expiraEm) });
-
-  return { ok: true, destino: '/conta' };
 }
 
 /**
@@ -236,27 +231,34 @@ export async function sair(): Promise<ResultadoAcao> {
  * DUAS consultas ao banco na mesma requisicao. O `cache` garante uma. E o mesmo
  * cuidado que o `getSession` do painel do cliente ja tinha.
  */
-export const usuarioAtual = cache(async (): Promise<{
+const carregarUsuarioAtual = cache(async (): Promise<{
   id: string;
   email: string;
   nome: string;
   papel: Papel;
+  telefone: string | null;
 } | null> => {
+  if (!temBanco()) return null;
   const jar = await cookies();
   const token = jar.get(COOKIE_SESSAO)?.value ?? null;
   if (!token) return null;
 
   const { lerToken } = await import('./sessao');
-  const dados = lerToken(token, process.env.SESSION_SECRET);
+  const dados = lerToken(token, segredoSessao());
   if (!dados) return null;
 
   const cliente = db();
   if (!cliente) return null;
 
   try {
+    const sessao = await cliente.userSession.findFirst({
+      where: { userId: dados.sub, tokenHash: hashTokenOpaco(token), revokedAt: null, expiresAt: { gt: new Date() } },
+      select: { id: true },
+    });
+    if (!sessao) return null;
     const usuario = await cliente.user.findUnique({
       where: { id: dados.sub },
-      select: { id: true, email: true, name: true, role: true, isActive: true },
+      select: { id: true, email: true, name: true, phone: true, role: true, isActive: true },
     });
     /*
       A CONTA FOI DESATIVADA DEPOIS que o token foi emitido. Um token valido de
@@ -269,11 +271,17 @@ export const usuarioAtual = cache(async (): Promise<{
       email: usuario.email,
       nome: usuario.name,
       papel: papelDe(usuario.role),
+      telefone: usuario.phone ?? null,
     };
   } catch {
     return null;
   }
 });
+
+/** Export async explicito para a fronteira de Server Actions do Next. */
+export async function usuarioAtual() {
+  return carregarUsuarioAtual();
+}
 
 /** Limpa tudo da sessao — usado pelo encerramento de TODAS as sessoes. */
 export async function encerrarTodasAsSessoes(): Promise<ResultadoAcao> {
@@ -285,8 +293,10 @@ export async function encerrarTodasAsSessoes(): Promise<ResultadoAcao> {
   if (!cliente) return { ok: false, motivo: MOTIVO_SEM_BANCO };
 
   const { lerToken } = await import('./sessao');
-  const dados = lerToken(token, process.env.SESSION_SECRET);
+  const dados = lerToken(token, segredoSessao());
   if (!dados) return { ok: false, motivo: 'Sessão inválida.' };
+  const usuario = await usuarioAtual();
+  if (!usuario || usuario.id !== dados.sub) return { ok: false, motivo: 'Sessão inválida.' };
 
   try {
     await cliente.userSession.updateMany({
@@ -299,5 +309,3 @@ export async function encerrarTodasAsSessoes(): Promise<ResultadoAcao> {
     return { ok: false, motivo: 'Não foi possível encerrar as sessões.' };
   }
 }
-
-export { DIAS_DE_SESSAO };

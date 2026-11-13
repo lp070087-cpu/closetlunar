@@ -117,11 +117,15 @@ export function MeasuresView() {
   const [sabeMedidas, setSabeMedidas] = useState<boolean | null>(null);
   const [aviso, setAviso] = useState<{ texto: string; tom: TomAviso } | null>(null);
   const [avatarAberto, setAvatarAberto] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [erroLeitura, setErroLeitura] = useState(false);
+  const [origem, setOrigem] = useState<'demo' | 'database'>('demo');
 
   useEffect(() => {
     let ativo = true;
-    void getPerfilMedidas().then(({ data }) => {
+    void getPerfilMedidas().then(({ data, source }) => {
       if (!ativo) return;
+      setOrigem(source);
       setPerfil(data);
       // O `useEffect` do original: o perfil preenche o formulario quando chega.
       setForm(perfilParaForm(data));
@@ -130,31 +134,51 @@ export function MeasuresView() {
       setPraticaAtividade(data?.practices_activity ?? null);
       setTempoAtividade(data?.activity_time ?? '');
       setSabeMedidas(data?.knows_measurements ?? null);
+    }).catch(() => {
+      if (ativo) setErroLeitura(true);
     });
     void listHistoricoMedidas().then(({ data }) => {
       if (ativo) setHistorico(data);
+    }).catch(() => {
+      if (ativo) setErroLeitura(true);
     });
     return () => {
       ativo = false;
     };
   }, []);
 
+  if (erroLeitura) {
+    return <p role="alert" className="text-sm text-danger">Não foi possível carregar suas medidas. Recarregue a página para tentar novamente.</p>;
+  }
+
   if (perfil === undefined || historico === null) {
     return <p className="text-sm text-muted-foreground">Carregando...</p>;
   }
 
   async function tentarSalvar() {
+    if (salvando) return;
     // A validacao do original: altura, peso e idade sao obrigatorios.
     if (!form.height || !form.weight || !form.age) {
       setAviso({ texto: 'Altura, peso e idade são obrigatórios.', tom: 'erro' });
       return;
     }
+    if (FIELDS.some(({ key }) => form[key] !== '' && (!Number.isFinite(Number(form[key])) || Number(form[key]) <= 0)) || !Number.isInteger(Number(form.age))) {
+      setAviso({ texto: 'Informe medidas maiores que zero e a idade em anos completos.', tom: 'erro' });
+      return;
+    }
+    setSalvando(true);
+    try {
     const { ok, reason } = await salvarPerfilMedidas();
     setAviso(
       ok
         ? { texto: 'Medidas salvas', tom: 'sucesso' }
         : { texto: reason ?? 'Ainda não foi possível salvar.', tom: 'erro' },
     );
+    } catch {
+      setAviso({ texto: 'Não foi possível salvar. Seus valores permanecem no formulário.', tom: 'erro' });
+    } finally {
+      setSalvando(false);
+    }
   }
 
   const atualizadoEm = dataCurta(perfil?.updated_at ?? null);
@@ -162,6 +186,7 @@ export function MeasuresView() {
   return (
     <div className="space-y-8 motion-safe:animate-fade-up">
       <ClienteToast message={aviso?.texto ?? null} tom={aviso?.tom ?? 'sucesso'} />
+      {origem === 'demo' && <p role="status" className="rounded-xl border border-border bg-secondary/30 px-4 py-3 text-sm text-muted-foreground">Perfil demonstrativo. As medidas preenchidas são exemplos; alterações ainda não são gravadas na sua conta.</p>}
       {avatarAberto && (
         <AvatarMedidasModal
           medidas={form}
@@ -205,7 +230,9 @@ export function MeasuresView() {
                   </span>
                   <input
                     type="number"
-                    step="0.1"
+                    min={f.key === 'age' ? '1' : '0.1'}
+                    required={f.key === 'height' || f.key === 'weight' || f.key === 'age'}
+                    step={f.key === 'age' ? '1' : '0.1'}
                     value={form[f.key]}
                     onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))}
                     className="mt-1.5 h-12 w-full rounded-xl border border-border bg-secondary/30 px-4 text-sm font-medium transition-all focus:bg-background focus:ring-2 focus:ring-foreground/5"
@@ -308,8 +335,8 @@ export function MeasuresView() {
               </div>
             </div>
 
-            <button className="h-12 w-full rounded-xl bg-foreground px-10 text-[10px] font-bold uppercase tracking-[0.2em] text-background shadow-lg transition-all hover:opacity-90 active:scale-95 md:w-auto">
-              Salvar Perfil de Medidas
+            <button disabled={salvando} aria-busy={salvando} className="h-12 w-full rounded-xl bg-foreground px-10 text-[10px] font-bold uppercase tracking-[0.2em] text-background shadow-lg transition-all hover:opacity-90 active:scale-95 disabled:opacity-50 md:w-auto">
+              {salvando ? 'Salvando...' : 'Salvar Perfil de Medidas'}
             </button>
           </form>
         </div>
@@ -325,7 +352,7 @@ export function MeasuresView() {
           <div className="group relative overflow-hidden rounded-3xl border border-border bg-foreground p-6 text-background shadow-soft">
             <div className="relative z-10">
               <div className="mb-4 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.15em] opacity-70">
-                <Ruler className="size-4" aria-hidden /> Última recomendação
+                <Ruler className="size-4" aria-hidden /> Tamanho informado no perfil
               </div>
               <p className="font-serif text-3xl md:text-4xl">
                 {perfil?.usual_size ? `Tamanho ${perfil.usual_size}` : 'Aguardando dados'}
@@ -343,8 +370,8 @@ export function MeasuresView() {
             </div>
             <h4 className="mb-2 font-serif text-xl">Sua Closet, Seu Tamanho</h4>
             <p className="text-sm leading-relaxed text-muted-foreground">
-              Com as medidas salvas, nosso sistema identifica automaticamente quais peças ficarão
-              perfeitas em você, evitando trocas e devoluções.
+              Consulte suas medidas antes de escolher uma peça. A recomendação automática de tamanho
+              depende das tabelas de medidas de cada produto e ainda não está disponível.
             </p>
           </div>
         </div>
@@ -407,6 +434,7 @@ export function BotaoSimNao({
   return (
     <button
       type="button"
+      aria-pressed={ativo}
       onClick={onClick}
       className={`h-12 flex-1 rounded-xl border text-sm font-medium transition-all ${
         ativo

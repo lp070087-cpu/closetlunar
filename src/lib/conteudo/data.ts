@@ -159,9 +159,7 @@ export async function toggleBanner(slide: HeroSlide): Promise<WriteResult<HeroSl
 export async function listSiteCategories(options?: {
   signal?: AbortSignal;
 }): Promise<Dataset<SiteCategory[]>> {
-  const result = await listCategories(
-    options?.signal ? { signal: options.signal } : undefined,
-  );
+  const result = await listCategories();
   return { data: toSiteCategories(result.data), source: result.source };
 }
 

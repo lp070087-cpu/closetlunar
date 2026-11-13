@@ -48,13 +48,13 @@ export function ProvadorIa({ imagem = '/site/avatar-provador.png' }: { imagem?: 
           <div className="absolute inset-0 bg-gradient-to-br from-secondary to-transparent opacity-50" />
 
           <div className="absolute left-8 top-8 flex items-center gap-2.5 rounded-full border border-border bg-background/40 px-5 py-2.5 text-[10px] uppercase tracking-[0.3em] text-muted-foreground backdrop-blur-md">
-            <Sparkles className="size-3.5" aria-hidden /> Closet Lunar IA
+            <Sparkles className="size-3.5" aria-hidden /> Closet Lunar · Medidas
           </div>
         </div>
 
         <div className="p-8 text-center md:p-14 md:text-left lg:p-20">
           <div className="inline-flex items-center gap-2.5 text-[10px] uppercase tracking-[0.4em] text-muted-foreground/60">
-            <Ruler className="size-3.5" aria-hidden /> Provador Virtual Inteligente
+            <Ruler className="size-3.5" aria-hidden /> Perfil e visualização de medidas
           </div>
 
           <h2 className="mt-4 font-serif text-3xl italic leading-[1.1] text-foreground md:mt-6 md:text-5xl lg:text-6xl">
@@ -63,8 +63,8 @@ export function ProvadorIa({ imagem = '/site/avatar-provador.png' }: { imagem?: 
           </h2>
 
           <p className="mx-auto mt-8 max-w-md text-base leading-relaxed text-muted-foreground md:mx-0 md:text-lg">
-            Informe suas medidas e descubra quais peças combinam melhor com você. Nossa
-            inteligência garante o caimento perfeito.
+            Consulte e organize suas medidas para escolher suas peças com mais confiança.
+            Veja seu perfil em uma prévia ilustrativa do nosso avatar.
           </p>
 
           <Link
@@ -76,10 +76,10 @@ export function ProvadorIa({ imagem = '/site/avatar-provador.png' }: { imagem?: 
 
           <div className="mt-10 flex flex-wrap justify-center gap-6 opacity-60 md:justify-start">
             <div className="flex items-center gap-2 text-[9px] uppercase tracking-widest text-muted-foreground">
-              <div className="size-1.5 rounded-full bg-muted-foreground" /> 100% Privado
+              <div className="size-1.5 rounded-full bg-muted-foreground" /> Perfil de medidas
             </div>
             <div className="flex items-center gap-2 text-[9px] uppercase tracking-widest text-muted-foreground">
-              <div className="size-1.5 rounded-full bg-muted-foreground" /> Análise em Tempo Real
+              <div className="size-1.5 rounded-full bg-muted-foreground" /> Visualização ilustrativa
             </div>
           </div>
         </div>

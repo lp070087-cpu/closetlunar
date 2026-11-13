@@ -114,7 +114,7 @@ export async function listCrmDataset(options?: {
 
   const now = options?.now ?? new Date();
 
-  const ordersResult = await listOrders({ signal: options?.signal });
+  const ordersResult = await listOrders();
   const records = ordersResult.data.map(toRecord);
 
   const customers = groupCustomers(records);
@@ -164,7 +164,7 @@ export async function listCustomers(options?: {
   signal?: AbortSignal;
 }): Promise<Dataset<CrmDataset['customers']>> {
   if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  const ordersResult = await listOrders({ signal: options?.signal });
+  const ordersResult = await listOrders();
   return { data: groupCustomers(ordersResult.data.map(toRecord)), source: 'demo' };
 }
 

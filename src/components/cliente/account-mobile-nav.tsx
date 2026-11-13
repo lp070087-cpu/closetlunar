@@ -1,52 +1,46 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { ChevronDown, Menu } from 'lucide-react';
 import { NAV_ITEMS, clientHref, isActiveSlug } from '@/lib/cliente/nav';
 import { cn } from '@/lib/utils';
 
-/**
- * A navegacao da area da cliente em TELA ESTREITA: uma linha horizontal de
- * pilulas que rola de lado.
- *
- * Nao ha print desta versao — os 20 prints sao de desktop. Ela esta aqui porque
- * o ORIGINAL a declara (`AccountLayout.tsx`, `lg:hidden`) e porque o comando
- * desta fase exige que a navegacao funcione no celular: sem ela, os nove itens
- * ficariam inalcancaveis abaixo de `lg`.
- *
- * O que vem do original, literalmente: pilulas `rounded-full`, item ativo
- * `bg-foreground text-background border-foreground`, item inativo
- * `bg-background text-foreground/70`, a linha com `-mx-4 px-4` para o corte
- * encostar na borda, e a rolagem sem barra visivel.
- *
- * O QUE NAO VEM DO ORIGINAL, e por que: o `-mx-4 px-4` do original supõe um
- * `px-4` no pai. A casca daqui usa `px-4 sm:px-6` (a medida do print), entao o
- * corte da rolagem usa a MESMA variavel de recuo do pai — se um dia o recuo
- * mudar, o corte acompanha em vez de desalinhar.
- *
- * A rolagem e `scrollbar-hide` (utilitario ja existente em `globals.css`) e nao
- * o `no-scrollbar` do original, que e uma classe do Tailwind v4 do projeto de
- * origem e nao existe neste.
- */
+/** In-flow disclosure: account sections never cover the page or widen it. */
 export function AccountMobileNav({ pathname }: { pathname: string | null }) {
+  const [open, setOpen] = useState(false);
+  const active = NAV_ITEMS.find((item) => isActiveSlug(pathname, item.slug));
+
+  useEffect(() => { setOpen(false); }, [pathname]);
+
   return (
-    <nav
-      aria-label="Área da cliente"
-      className="-mx-4 overflow-x-auto px-4 sm:-mx-6 sm:px-6 scrollbar-hide lg:hidden"
-    >
-      <ul className="flex gap-2 pb-2">
+    <nav aria-label="Área da cliente" className="min-w-0 max-w-full lg:hidden">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls="account-mobile-sections"
+        onClick={() => setOpen((value) => !value)}
+        className="focus-ring flex min-h-12 w-full items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left text-sm font-medium shadow-soft"
+      >
+        <Menu className="size-5 shrink-0" aria-hidden />
+        <span className="min-w-0 flex-1 truncate">{active?.label ?? 'Seções da conta'}</span>
+        <ChevronDown className={cn('size-4 shrink-0 transition-transform motion-reduce:transition-none', open && 'rotate-180')} aria-hidden />
+      </button>
+      <ul id="account-mobile-sections" hidden={!open} className="mt-2 space-y-1 rounded-2xl border border-border bg-background p-2">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const ativo = isActiveSlug(pathname, item.slug);
           return (
-            <li key={item.slug} className="shrink-0">
+            <li key={item.slug}>
               <Link
                 href={clientHref(item.slug)}
+                onClick={() => setOpen(false)}
                 aria-current={ativo ? 'page' : undefined}
                 className={cn(
-                  'focus-ring flex items-center gap-2 whitespace-nowrap rounded-full border px-5 py-3 text-sm font-medium shadow-soft transition-all',
+                  'focus-ring flex min-h-12 items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors motion-reduce:transition-none',
                   ativo
-                    ? 'border-foreground bg-foreground text-background'
-                    : 'border-border bg-background text-foreground/70 hover:border-foreground/30',
+                    ? 'bg-foreground text-background'
+                    : 'bg-background text-foreground/70 hover:bg-secondary',
                 )}
               >
                 <Icon className="size-4 shrink-0" aria-hidden />

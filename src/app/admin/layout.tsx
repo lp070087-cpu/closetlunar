@@ -1,4 +1,6 @@
 import { AdminLayoutClient } from './layout-client';
+import { exigirPapel } from '@/lib/auth/guardas';
+import { usuarioAtual } from '@/lib/auth/acoes';
 
 /**
  * Layout do painel administrativo.
@@ -13,6 +15,8 @@ export const metadata = {
   title: 'Painel Administrativo',
 };
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  return <AdminLayoutClient>{children}</AdminLayoutClient>;
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const sessao = await exigirPapel('admin', '/entrar?area=admin');
+  const usuario = sessao.demo ? null : await usuarioAtual();
+  return <AdminLayoutClient email={usuario?.email} demo={sessao.demo}>{children}</AdminLayoutClient>;
 }

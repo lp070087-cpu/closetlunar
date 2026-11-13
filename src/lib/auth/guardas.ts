@@ -31,11 +31,9 @@
  * codigo e e testavel.
  */
 
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { COOKIE_SESSAO, lerToken, type Papel } from './sessao';
-import { papelDe } from './decisao';
-import { db } from '@/lib/db';
+import type { Papel } from './sessao';
+import { usuarioAtual } from './acoes';
 
 /** Quem esta pedindo. `demo: true` = nao ha banco, a area roda em demonstracao. */
 export interface SessaoAtual {
@@ -55,16 +53,13 @@ export interface SessaoAtual {
  * server-side).
  */
 export async function sessaoAtual(): Promise<SessaoAtual | null> {
-  const jar = await cookies();
-  const token = jar.get(COOKIE_SESSAO)?.value ?? null;
-  if (!token) return null;
-
-  const dados = lerToken(token, process.env.SESSION_SECRET);
-  if (!dados) return null;
+  // A assinatura sozinha nao prova que a sessao continua ativa no banco.
+  const usuario = await usuarioAtual();
+  if (!usuario) return null;
 
   return {
-    usuarioId: dados.sub,
-    papel: papelDe(dados.papel),
+    usuarioId: usuario.id,
+    papel: usuario.papel,
     demo: false,
     autenticado: true,
   };
@@ -78,21 +73,21 @@ export async function sessaoAtual(): Promise<SessaoAtual | null> {
  * Fase 2 acessiveis enquanto o Neon nao existe. O `demo: true` viaja junto para
  * quem quiser mostrar um aviso.
  */
-export async function exigirPapel(papel: Papel, destino = '/conta'): Promise<SessaoAtual> {
+export async function exigirPapel(papel: Papel, destino = '/entrar'): Promise<SessaoAtual> {
   const sessao = await sessaoAtual();
 
   if (!sessao) {
     // Sem banco nao ha login possivel — a alternativa seria trancar a area.
-    if (!temBancoAgora()) {
+    if (!temBancoAgora() && process.env.NODE_ENV !== 'production') {
       return { usuarioId: 'demo', papel, demo: true, autenticado: false };
     }
     redirect(destino);
   }
 
-  if (sessao.papel !== papel) {
+  if (papel === 'admin' && sessao.papel !== 'admin') {
     // Autenticado, mas com o papel errado: manda para a area DELE, e nao para a
     // tela de login. Quem ja esta logado nao deve ver um formulario de login.
-    redirect(sessao.papel === 'admin' ? '/admin' : '/conta');
+    redirect('/conta');
   }
 
   return sessao;

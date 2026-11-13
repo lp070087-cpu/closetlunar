@@ -542,8 +542,9 @@ else fail('saida', 'a saida virou um link — link morto');
 
 const mobile = render(AccountMobileNav, { pathname: '/conta/favoritos' });
 if (contar(mobile, '<a ') === 9 && contar(mobile, 'aria-current="page"') === 1 &&
-    mobile.includes('lg:hidden') && mobile.includes('scrollbar-hide'))
-  ok('a barra mobile tem os 9 itens, um ativo, e so aparece abaixo de `lg`', '`lg:hidden` + rolagem horizontal');
+    mobile.includes('lg:hidden') && mobile.includes('aria-controls="account-mobile-sections"') &&
+    mobile.includes('aria-expanded="false"') && /<ul[^>]*hidden/.test(mobile))
+  ok('o menu mobile tem os 9 itens e um ativo, fechado inicialmente', 'disclosure acessivel em fluxo, sem barra horizontal sobreposta');
 else fail('barra mobile', `${contar(mobile, '<a ')} links, ${contar(mobile, 'aria-current="page"')} ativos`);
 
 const ativaMobile = (mobile.match(/<a [^>]*aria-current[\s\S]*?<\/a>/) ?? [''])[0];
@@ -601,8 +602,8 @@ if (asideHtml.includes('hidden') && asideHtml.includes('lg:block'))
   ok('o `<aside>` da coluna e `hidden lg:block`', 'a coluna nao vaza para o celular');
 else fail('`<aside>` da coluna', asideHtml || '(nao encontrado)');
 
-if (cascaLimpa.includes('lg:grid-cols-[260px_1fr]') && cascaLimpa.includes('min-w-0'))
-  ok('a grade e `260px 1fr` e o `main` tem `min-w-0`', 'sem `min-w-0` o conteudo estoura a coluna em vez de encolher');
+if (cascaLimpa.includes('lg:grid-cols-[260px_minmax(0,1fr)]') && cascaLimpa.includes('min-w-0'))
+  ok('a grade limita a coluna do conteudo com minmax(0,1fr)', 'o conteudo pode encolher sem overflow horizontal');
 else fail('grade da casca', 'a coluna do conteudo nao encolhe');
 
 if (/\bpx-3\b/.test(cascaLimpa) && /\bsm:px-4\b/.test(cascaLimpa) && /\bmd:py-14\b/.test(cascaLimpa))
@@ -651,9 +652,9 @@ else fail('teto no cabecalho', '`max-w-[1600px]` deslocaria o cabecalho em tela 
  * esquecimento.
  */
 const cabecalho = arquivo('src/components/cliente/store-header.tsx');
-if (/substitui|stand-in|site publico|site público/i.test(cabecalho))
-  ok('o `StoreHeader` se declara substituto do site publico', 'nao pode virar permanente por esquecimento');
-else fail('`StoreHeader`', 'nao esta declarado como substituto');
+if (/import\s+\{\s*SiteHeader\s*\}/.test(cabecalho) && /<SiteHeader\b/.test(cabecalho))
+  ok('o `StoreHeader` reutiliza o cabecalho publico funcional', 'site e conta compartilham menu e busca');
+else fail('`StoreHeader`', 'nao reutiliza a navegacao publica');
 
 if (cascaLimpa.includes('StoreHeader') && cascaLimpa.includes('StoreFooter'))
   ok('a casca usa o cabecalho e o rodape de loja', 'a area da cliente nasce dentro da loja, nao solta');

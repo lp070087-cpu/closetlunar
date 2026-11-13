@@ -87,7 +87,6 @@ function hashSenha(senha) {
   return ['scrypt', N, R, P, salt.toString('base64'), chave.toString('base64')].join('$');
 }
 
-const SENHA_DE_TESTE = 'closet123';
 
 /* ------------------------------ os dados ---------------------------------- */
 
@@ -96,7 +95,9 @@ const CATEGORIAS = [
   { name: 'Macaquinhos', slug: 'macaquinhos', sortOrder: 2 },
   { name: 'Conjuntos', slug: 'conjuntos', sortOrder: 3 },
   { name: 'Shorts', slug: 'shorts', sortOrder: 4 },
+  { name: 'Streetwear', slug: 'streetwear', sortOrder: 5 },
   { name: 'Leggings', slug: 'leggings', sortOrder: 6 },
+  { name: 'Croppeds', slug: 'croppeds', sortOrder: 7 },
 ];
 
 /**
@@ -125,35 +126,27 @@ async function main() {
   console.log('\n  Seed do Closet Lunna\n');
 
   try {
-    // --- os dois usuarios -------------------------------------------------
+    // --- a conta admin (credenciais vindas do .env, nunca do codigo) ---
     //
     // Um de cada papel. Sem os dois nao da para provar a separacao de acesso,
     // que e uma das regras centrais da fase.
+    const emailAdmin = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+    const senhaAdmin = process.env.ADMIN_PASSWORD || '';
+    if (!emailAdmin || senhaAdmin.length < 10) {
+      throw new Error('Defina ADMIN_EMAIL e ADMIN_PASSWORD (10+ caracteres) no .env antes do seed.');
+    }
     const admin = await prisma.user.upsert({
-      where: { email: 'admin@closetlunnar.com' },
-      update: {},
+      where: { email: emailAdmin },
+      update: { role: 'admin', isActive: true },
       create: {
-        email: 'admin@closetlunnar.com',
+        email: emailAdmin,
         name: 'Administradora',
-        passwordHash: hashSenha(SENHA_DE_TESTE),
+        passwordHash: hashSenha(senhaAdmin),
         role: 'admin',
         isActive: true,
       },
     });
-
-    const cliente = await prisma.user.upsert({
-      where: { email: 'cliente@exemplo.com' },
-      update: {},
-      create: {
-        email: 'cliente@exemplo.com',
-        name: 'Cliente de Teste',
-        passwordHash: hashSenha(SENHA_DE_TESTE),
-        role: 'cliente',
-        isActive: true,
-      },
-    });
-
-    console.log(`  ok  usuarios        admin=${admin.email}  cliente=${cliente.email}`);
+    console.log('  ok  admin           ' + admin.email);
 
     // --- categorias -------------------------------------------------------
     const idsCategoria = {};
@@ -260,21 +253,6 @@ async function main() {
     });
     console.log('  ok  settings        instagram + footer');
 
-    console.log(
-      [
-        '',
-        '  ================== ATENCAO ==================',
-        `  Duas contas de teste foram criadas com a senha  ${SENHA_DE_TESTE}`,
-        '    admin@closetlunnar.com   (papel: admin)',
-        '    cliente@exemplo.com      (papel: cliente)',
-        '',
-        '  Isso existe para PODER TESTAR o login. O banco guarda o HASH,',
-        '  e nao a senha. ANTES DE PUBLICAR: troque a senha das duas ou',
-        '  remova as contas.',
-        '  ============================================',
-        '',
-      ].join('\n'),
-    );
   } finally {
     await prisma.$disconnect();
   }

@@ -12,7 +12,7 @@ import type { WhatsAppConfig } from '@/lib/whatsapp/types';
  *
  *   ESQUERDA   `Configuração Geral` (número + horário) e, abaixo, `Gatilhos de
  *              Mensagem` com os quatro gatilhos.
- *   DIREITA    `Dicas de Conversão` (caixa verde), o card `Vendedor Virtual Ativo`
+ *   DIREITA    `Dicas de Conversão` (caixa verde), o card `Atendimento via link do WhatsApp`
  *              e o botão `SALVAR CONFIGURAÇÕES`.
  *
  * As alturas não se equilibram — a coluna esquerda é bem mais alta — porque os
@@ -147,13 +147,12 @@ export function ConfigTab({
           <ul className="space-y-3 text-sm text-foreground/80">
             <li className="flex gap-2">
               <span className="font-bold text-success">•</span>
-              <span>Use gatilhos de urgência como &quot;Últimas peças&quot; ou &quot;Estoque limitado&quot;.</span>
+              <span>Informe disponibilidade e prazos apenas quando confirmados no estoque.</span>
             </li>
             <li className="flex gap-2">
               <span className="font-bold text-success">•</span>
               <span>
-                Para carrinhos abandonados, oferecer um cupom exclusivo (ex: VOLTEI5) aumenta a
-                conversão em até 30%.
+                Ofereça apenas cupons ativos e condições de desconto aprovadas pela loja.
               </span>
             </li>
             <li className="flex gap-2">
@@ -170,8 +169,7 @@ export function ConfigTab({
           <div>
             <h4 className="font-bold">Vendedor Virtual Ativo</h4>
             <p className="mt-1 text-xs text-muted-foreground">
-              O botão flutuante e os botões de dúvida nos produtos já estão configurados para usar
-              essas mensagens.
+              O site abre uma conversa no WhatsApp. Gatilhos automáticos e alterações destas mensagens ainda não estão conectados.
             </p>
           </div>
         </section>
