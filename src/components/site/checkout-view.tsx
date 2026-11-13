@@ -372,7 +372,7 @@ export function CheckoutView() {
                     <span className="font-medium">
                       {o.gratis ? (
                         <>
-                          <s className="mr-1 text-xs text-muted-foreground">{formatBRL(o.precoOriginal)}</s>Grátis
+                          {o.precoOriginal > 0 ? <s className="mr-1 text-xs text-muted-foreground">{formatBRL(o.precoOriginal)}</s> : null}Grátis
                         </>
                       ) : (
                         formatBRL(o.preco)
