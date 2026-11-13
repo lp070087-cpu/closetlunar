@@ -28,5 +28,11 @@ Produção: https://closetlunar.vercel.app (deploy automático a partir da branc
 - Cadastrar fotos reais nos produtos (o seed não tem imagens).
 - Opcional: `RESEND_API_KEY` + `AVISO_EMAIL_*` para e-mails de pedido pago.
 
-## Ainda em modo demonstração (não bloqueiam a venda)
-Os módulos administrativos secundários (CRM, campanhas, fidelidade, afiliadas, relatórios, e-mails, atendimento, entrega própria por bairro, provador/avatar) continuam com telas prontas e dados de demonstração onde o `data.ts` ainda não lê do banco. Pedidos, produtos, categorias, pagamentos e frete — o caminho da venda — estão reais.
+## Painel e área da cliente — tudo no banco (13/11/2026)
+Cupons (mesma tabela do checkout), estoque com histórico, conteúdo do site (banners, seções, benefícios, rodapé, Instagram, tema, looks), fidelidade, afiliadas, campanhas, atendimento/WhatsApp, e-mails, SEO, tamanhos, provador, carrinho abandonado, custos do financeiro, entrega própria por bairro (também oferecida no checkout), relatórios (pedidos pagos), segurança (AuditLog), usuários, favoritos, leads do pop-up no CRM, pontos do Clube VIP creditados no pagamento.
+
+## Vitrine
+- 8 conjuntos com as fotos da dona (MODA/SBNE) em /public/produtos/loja; os 6 produtos de exemplo sem foto ficaram como rascunho.
+- Hero com 3 banners: vídeo (6 s, /site/banners/campanha-*.mp4) + 2 imagens; textos editáveis em Conteúdo do Site.
+- Parcelamento exibido: 3x sem juros — ative o parcelamento sem juros (até 3x) no app InfinitePay.
+- Revisar nomes, preços e estoque (5 un.) dos 8 conjuntos no admin.
