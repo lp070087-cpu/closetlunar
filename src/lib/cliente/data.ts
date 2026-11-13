@@ -451,3 +451,44 @@ export async function alternarFavorito(produtoId: string): Promise<{ favorito: b
   await gravarJson(k, novo);
   return { favorito: !tem };
 }
+
+/* ------------------------- checkout: dados da conta ------------------------- */
+
+export interface DadosCheckoutConta {
+  nome: string;
+  email: string;
+  telefone: string;
+  endereco: {
+    cep: string;
+    rua: string;
+    numero: string;
+    complemento: string;
+    bairro: string;
+    cidade: string;
+    uf: string;
+  } | null;
+}
+
+/** O que o checkout preenche sozinho para quem esta logada (`null` = visitante). */
+export async function dadosCheckout(): Promise<DadosCheckoutConta | null> {
+  const u = await contaReal();
+  if (!u) return null;
+  const lista = await lerJson<EnderecoCliente[]>(chave(u.id, 'enderecos'), []);
+  const e = lista.find((x) => x.is_default) ?? lista[0] ?? null;
+  return {
+    nome: u.nome || '',
+    email: u.email,
+    telefone: u.telefone || '',
+    endereco: e
+      ? {
+          cep: e.cep,
+          rua: e.street,
+          numero: e.number ?? '',
+          complemento: e.complement ?? '',
+          bairro: e.neighborhood ?? '',
+          cidade: e.city,
+          uf: e.state,
+        }
+      : null,
+  };
+}

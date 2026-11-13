@@ -35,6 +35,9 @@ export interface ConfigFrete {
   /** Frete fixo usado quando o Melhor Envio nao responde/nao esta configurado. 0 = desligado. */
   freteFixo: number;
   freteFixoPrazo: number;
+  /** Oferece "Retirar na loja" (gratis) no checkout. */
+  retiradaAtiva: boolean;
+  retiradaEndereco: string;
 }
 
 export const CHAVE_PAGAMENTO = 'integracao_infinitepay';
@@ -92,6 +95,8 @@ export async function configFrete(): Promise<ConfigFrete> {
     diasManuseio: typeof s.diasManuseio === 'number' ? s.diasManuseio : 1,
     freteFixo: typeof s.freteFixo === 'number' && s.freteFixo > 0 ? s.freteFixo : 0,
     freteFixoPrazo: typeof s.freteFixoPrazo === 'number' && s.freteFixoPrazo > 0 ? s.freteFixoPrazo : 10,
+    retiradaAtiva: s.retiradaAtiva ?? true,
+    retiradaEndereco: s.retiradaEndereco || 'Rua das Meninas, 27 — Águas Compridas, Olinda/PE',
   };
 }
 

@@ -160,6 +160,7 @@ export function MelhorEnvioConfig() {
     diasManuseio: 1,
     freteFixo: 0,
     freteFixoPrazo: 10,
+    retiradaAtiva: true,
   });
   const [cepTeste, setCepTeste] = useState('01310-100');
   const [ocupado, setOcupado] = useState(false);
@@ -180,6 +181,7 @@ export function MelhorEnvioConfig() {
         diasManuseio: painel.diasManuseio,
         freteFixo: painel.freteFixo,
         freteFixoPrazo: painel.freteFixoPrazo,
+        retiradaAtiva: painel.retiradaAtiva,
       }));
   }, [painel]);
 
@@ -262,6 +264,16 @@ export function MelhorEnvioConfig() {
             <input className={campo} inputMode="numeric" value={f.freteFixoPrazo} onChange={num('freteFixoPrazo')} />
           </label>
         </div>
+
+        <label className="mt-4 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={f.retiradaAtiva}
+            onChange={(e) => setF((x) => ({ ...x, retiradaAtiva: e.target.checked }))}
+            className="accent-foreground"
+          />
+          Oferecer &quot;Retirar na loja&quot; (grátis) — Rua das Meninas, 27, Águas Compridas
+        </label>
 
         <label className="mt-4 flex items-center gap-2 text-sm">
           <input

@@ -89,9 +89,22 @@ export async function cotarFrete(entrada: {
   const preco = new Map(produtos.map((p) => [p.id, Number(p.promoPrice ?? p.price)]));
   const subtotal = entrada.itens.reduce((s, i) => s + (preco.get(i.produtoId) ?? 0) * i.quantidade, 0);
   const propria = await entregaPropria(cep, subtotal, regras);
-  if (!propria) return r;
-  const deMelhorEnvio = r.ok ? r.opcoes.filter((o) => o.id !== 'fixo') : [];
-  return { ok: true, opcoes: [propria, ...deMelhorEnvio], freteGratisAcima: regras.freteGratisAcima };
+  const retirada: OpcaoFrete | null = regras.retiradaAtiva
+    ? {
+        id: 'retirada',
+        nome: regras.retiradaEndereco,
+        empresa: 'Retirar na loja',
+        preco: 0,
+        precoOriginal: 0,
+        prazoMin: regras.diasManuseio,
+        prazoMax: regras.diasManuseio,
+        gratis: true,
+      }
+    : null;
+  if (!propria && !retirada) return r;
+  const deMelhorEnvio = r.ok ? r.opcoes.filter((o) => o.id !== 'fixo' || !propria) : [];
+  const opcoes = [propria, ...deMelhorEnvio, retirada].filter(Boolean) as OpcaoFrete[];
+  return { ok: true, opcoes, freteGratisAcima: regras.freteGratisAcima };
 }
 
 async function cotarMelhorEnvio(entrada: {

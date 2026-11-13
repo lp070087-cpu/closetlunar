@@ -6,6 +6,7 @@ import { Loader2, Lock, Truck } from 'lucide-react';
 import { useSacola } from '@/lib/site/carrinho';
 import { formatBRL } from '@/lib/utils';
 import { AVISO_GATEWAY } from '@/lib/pagamento/provider';
+import { dadosCheckout } from '@/lib/cliente/data';
 
 /**
  * CHECKOUT — dados da cliente, endereco, frete (Melhor Envio) e pagamento
@@ -69,14 +70,46 @@ export function CheckoutView() {
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState('');
 
-  // Lembra os dados da cliente neste navegador (conveniencia).
+  const [logada, setLogada] = useState(false);
+
+  // Preenche sozinho: 1) dados da CONTA logada (nome, e-mail, WhatsApp, endereco
+  // principal); 2) senao, o que ficou salvo neste navegador na ultima compra.
   useEffect(() => {
+    let vivo = true;
+    let local: Partial<typeof dados> = {};
     try {
       const salvo = localStorage.getItem(CHAVE_DADOS);
-      if (salvo) setDados((d) => ({ ...d, ...JSON.parse(salvo) }));
+      if (salvo) local = JSON.parse(salvo);
     } catch {
       /* armazenamento bloqueado */
     }
+    setDados((d) => ({ ...d, ...local }));
+    dadosCheckout()
+      .then((c) => {
+        if (!vivo || !c) return;
+        setLogada(true);
+        setDados((d) => ({
+          ...d,
+          nome: c.nome || d.nome,
+          email: c.email || d.email,
+          telefone: c.telefone ? mascaraTel(c.telefone) : d.telefone,
+          ...(c.endereco
+            ? {
+                cep: mascaraCep(c.endereco.cep),
+                rua: c.endereco.rua,
+                numero: c.endereco.numero,
+                complemento: c.endereco.complemento,
+                bairro: c.endereco.bairro,
+                cidade: c.endereco.cidade,
+                uf: c.endereco.uf,
+              }
+            : {}),
+        }));
+      })
+      .catch(() => undefined);
+    return () => {
+      vivo = false;
+    };
   }, []);
 
   const set = (k: keyof typeof dados) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -232,6 +265,13 @@ export function CheckoutView() {
       <div className="space-y-10">
         <section>
           <h2 className="font-serif text-2xl italic">Seus dados</h2>
+          {logada ? (
+            <p className="mt-1 text-xs text-muted-foreground">Preenchido com os dados da sua conta. O endereço desta compra fica salvo para as próximas.</p>
+          ) : (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Tem conta? <Link href="/entrar" className="underline">Entre</Link> para preencher tudo automaticamente.
+            </p>
+          )}
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <label className="sm:col-span-2">
               <span className={rotulo}>Nome completo</span>

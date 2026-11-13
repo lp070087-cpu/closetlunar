@@ -40,6 +40,7 @@ export interface PainelIntegracoes {
   diasManuseio: number;
   freteFixo: number;
   freteFixoPrazo: number;
+  retiradaAtiva: boolean;
 }
 
 export async function lerPainelIntegracoes(): Promise<PainelIntegracoes | null> {
@@ -60,6 +61,7 @@ export async function lerPainelIntegracoes(): Promise<PainelIntegracoes | null> 
     diasManuseio: f.diasManuseio,
     freteFixo: f.freteFixo,
     freteFixoPrazo: f.freteFixoPrazo,
+    retiradaAtiva: f.retiradaAtiva,
   };
 }
 
@@ -102,6 +104,7 @@ export async function salvarMelhorEnvio(dados: {
   diasManuseio: number;
   freteFixo?: number;
   freteFixoPrazo?: number;
+  retiradaAtiva?: boolean;
 }) {
   if (!(await admin())) return NEGADO;
   const atual = await configMelhorEnvio();
@@ -124,6 +127,7 @@ export async function salvarMelhorEnvio(dados: {
     diasManuseio: Math.max(0, Math.trunc(Number(dados.diasManuseio) || 0)),
     freteFixo: Math.max(0, Number(dados.freteFixo) || 0),
     freteFixoPrazo: Math.max(1, Math.trunc(Number(dados.freteFixoPrazo) || 10)),
+    retiradaAtiva: dados.retiradaAtiva !== false,
   });
   return { ok: true, mensagem: 'Configuração do Melhor Envio salva.' };
 }

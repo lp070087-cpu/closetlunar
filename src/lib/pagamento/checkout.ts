@@ -138,7 +138,7 @@ export async function criarPedidoECobranca(e: EntradaCheckout, req: Request): Pr
           couponCode: cupomAplicado,
           subtotal,
           total,
-          shippingKind: frete.id.startsWith('propria:') ? 'propria' : 'transportadora',
+          shippingKind: frete.id.startsWith('propria:') || frete.id === 'retirada' ? 'propria' : 'transportadora',
           carrier: frete.empresa,
           shipmentMethod: `${frete.empresa} ${frete.nome} (${frete.prazoMin}-${frete.prazoMax} dias úteis)`.trim(),
           addressZip: so(e.endereco.cep),
@@ -168,6 +168,7 @@ export async function criarPedidoECobranca(e: EntradaCheckout, req: Request): Pr
     }
   }
   if (!pedido) return { ok: false, erro: 'Não foi possível registrar o pedido.' };
+  if (e.userId) await lembrarDadosDaConta(e.userId, e).catch(() => undefined);
 
   // 5) Itens para a InfinitePay (centavos). Com desconto, vira uma linha so com o total.
   const centavos = (v: number) => Math.round(v * 100);
@@ -209,4 +210,42 @@ export async function criarPedidoECobranca(e: EntradaCheckout, req: Request): Pr
     await cliente.order.update({ where: { id: pedido.id }, data: { status: 'cancelado', paymentStatus: 'recusado' } });
     return { ok: false, erro: 'Não foi possível abrir o pagamento agora. Tente novamente em instantes.' };
   }
+}
+
+/**
+ * Depois do pedido criado por uma cliente logada: guarda o endereco na conta
+ * (se ainda nao existir) e completa nome/WhatsApp vazios. Nunca guarda dados de cartao.
+ */
+export async function lembrarDadosDaConta(userId: string, e: EntradaCheckout): Promise<void> {
+  const c = db();
+  if (!c) return;
+  const usuario = await c.user.findUnique({ where: { id: userId } });
+  if (!usuario) return;
+  const dados: { name?: string; phone?: string } = {};
+  if (!usuario.name?.trim()) dados.name = e.cliente.nome.trim();
+  if (!usuario.phone?.trim()) dados.phone = e.cliente.telefone.trim();
+  if (Object.keys(dados).length) await c.user.update({ where: { id: userId }, data: dados });
+
+  const chave = `cliente:${userId}:enderecos`;
+  const linha = await c.setting.findUnique({ where: { key: chave } });
+  const lista = ((linha?.value as { cep: string; number: string | null; is_default: boolean }[] | null) ?? []).slice();
+  const cep = so(e.endereco.cep);
+  const fmt = `${cep.slice(0, 5)}-${cep.slice(5)}`;
+  if (lista.some((x) => so(x.cep) === cep && (x.number ?? '') === e.endereco.numero.trim())) return;
+  lista.push({
+    id: randomBytes(8).toString('hex'),
+    label: lista.length ? 'Entrega' : 'Casa',
+    recipient: e.cliente.nome.trim(),
+    phone: e.cliente.telefone.trim() || null,
+    cep: fmt,
+    street: e.endereco.rua.trim(),
+    number: e.endereco.numero.trim() || null,
+    complement: (e.endereco.complemento ?? '').trim() || null,
+    neighborhood: e.endereco.bairro.trim() || null,
+    city: e.endereco.cidade.trim(),
+    state: e.endereco.uf.trim().toUpperCase(),
+    is_default: lista.length === 0,
+  } as never);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await c.setting.upsert({ where: { key: chave }, update: { value: lista as any }, create: { key: chave, value: lista as any } });
 }
