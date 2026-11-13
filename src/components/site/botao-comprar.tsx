@@ -70,7 +70,7 @@ export function BotaoComprar({
     : adicionando
       ? 'Adicionado'
       : temVariacoes
-        ? 'Escolher tamanho'
+        ? 'Comprar'
         : 'Comprar';
 
   return (
@@ -79,7 +79,7 @@ export function BotaoComprar({
       onClick={comprar}
       disabled={esgotado}
       className={
-        'inline-flex min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-foreground py-2.5 text-[10px] font-medium uppercase tracking-[0.1em] text-background shadow-sm transition-all hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-40 md:py-3 md:text-xs md:tracking-[0.18em] ' +
+        'inline-flex h-9 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-foreground px-2 text-[10px] font-medium uppercase tracking-[0.06em] text-background shadow-sm transition-all hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-40 md:h-10 md:gap-2 md:text-xs md:tracking-[0.14em] ' +
         className
       }
     >
@@ -90,7 +90,7 @@ export function BotaoComprar({
       ) : (
         <ShoppingBag className="size-3.5 shrink-0" aria-hidden />
       )}
-      <span className="truncate">{rotulo}</span>
+      <span>{rotulo}</span>
     </button>
   );
 }

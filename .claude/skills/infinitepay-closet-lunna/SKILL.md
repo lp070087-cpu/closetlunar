@@ -39,7 +39,7 @@ O webhook da InfinitePay **não tem assinatura**. Nunca marque pago só porque o
 - Opcionais (variáveis na Vercel): `RESEND_API_KEY` + `AVISO_EMAIL_REMETENTE` (+ `AVISO_EMAIL_LOJA`) para e-mail; `AVISO_WEBHOOK_URL` para Make/Zapier/n8n/bot de WhatsApp.
 
 ## Configuração
-- InfiniteTag: Admin → Configurações → Pagamentos (grava em `Setting` `integracao_infinitepay`); fallback `INFINITEPAY_HANDLE` na Vercel (hoje `unitrix`).
+- InfiniteTag: Admin → Configurações → Pagamentos (grava em `Setting` `integracao_infinitepay`); fallback `INFINITEPAY_HANDLE` na Vercel (conta Closet Lunar: `closetlunaar`).
 - "Testar conexão" cria um link de R$ 1,00 sem pedido (ninguém é cobrado).
 
 ## Diagnóstico de pedido que não liberou

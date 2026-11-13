@@ -176,7 +176,8 @@ export function AccountView() {
    * proxima fase nao ter que redescobrir a diferenca.
    */
   async function salvar() {
-    const { ok, reason } = await salvarDadosConta();
+    const { ok, reason } = await salvarDadosConta({ nome, telefone });
+    if (ok && conta) setConta({ ...conta, nomeCompleto: nome, telefone });
     setAviso(
       ok
         ? {

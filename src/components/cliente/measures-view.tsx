@@ -168,7 +168,26 @@ export function MeasuresView() {
     }
     setSalvando(true);
     try {
-    const { ok, reason } = await salvarPerfilMedidas();
+    const num = (v: string) => (v === '' ? null : Number(v));
+    const { ok, reason } = await salvarPerfilMedidas({
+      height: num(form.height),
+      weight: num(form.weight),
+      age: num(form.age),
+      bust: num(form.bust),
+      waist: num(form.waist),
+      hip: num(form.hip),
+      usual_size: usualSize || null,
+      fit_preference: fit || null,
+      practices_activity: praticaAtividade,
+      activity_time: tempoAtividade || null,
+      knows_measurements: sabeMedidas,
+    });
+    if (ok) {
+      const [p, h] = await Promise.all([getPerfilMedidas(), listHistoricoMedidas()]);
+      setPerfil(p.data);
+      setHistorico(h.data);
+      setOrigem(p.source);
+    }
     setAviso(
       ok
         ? { texto: 'Medidas salvas', tom: 'sucesso' }

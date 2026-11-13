@@ -27,7 +27,7 @@ export function ProductGallery({
 }) {
   const [selectedId, setSelectedId] = useState(images[0]?.id);
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  if (images.length === 0) return <div className="grid aspect-[3/4] place-items-center rounded-2xl bg-secondary text-sm text-muted-foreground">Fotografia pendente</div>;
+  if (images.length === 0) return <div className="grid aspect-[3/4] place-items-center rounded-2xl bg-secondary text-sm text-muted-foreground"><span className="font-serif text-6xl italic text-foreground/15" aria-hidden>{alt.charAt(0)}</span></div>;
   const principal = images.find(image => image.id === selectedId) ?? images[0];
 
   return (

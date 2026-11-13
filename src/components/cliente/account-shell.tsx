@@ -218,9 +218,11 @@ export function AccountShell({ saudacao, children, demo = true }: AccountShellPr
     */
     <div data-cliente-area className="flex min-h-screen flex-col bg-background">
       <StoreHeader />
-      <p role="status" className="mx-3 mt-4 rounded-xl border border-border px-4 py-3 text-sm text-muted-foreground">
-        {demo ? 'Demonstração de desenvolvimento: dados de exemplo, sem persistência.' : 'Sua identidade está autenticada. Pedidos, endereços, medidas, clube e demais módulos ainda exibem exemplos demonstrativos e não representam seus registros reais.'}
-      </p>
+      {demo ? (
+        <p role="status" className="mx-3 mt-4 rounded-xl border border-border px-4 py-3 text-sm text-muted-foreground">
+          Demonstração de desenvolvimento: dados de exemplo, sem persistência.
+        </p>
+      ) : null}
       {erroSaida && <p role="alert" className="px-4 py-2 text-sm text-danger">{erroSaida}</p>}
 
       {/*

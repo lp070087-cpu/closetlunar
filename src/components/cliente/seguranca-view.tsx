@@ -218,7 +218,7 @@ export function SegurancaView() {
       setAviso({ texto: erro, tom: 'erro' });
       return;
     }
-    const { ok, reason } = await salvarSenha();
+    const { ok, reason } = await salvarSenha(senha);
     if (!ok) {
       setAviso({ texto: reason ?? 'Ainda não foi possível salvar.', tom: 'erro' });
       return;

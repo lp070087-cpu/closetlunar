@@ -261,6 +261,12 @@ export function AddressesView() {
    */
   async function tentar(acao: () => Promise<{ ok: boolean; reason?: string }>, sucesso: string) {
     const { ok, reason } = await acao();
+    if (ok) {
+      setCriando(false);
+      setEditando(null);
+      const { data } = await listEnderecos();
+      setEnderecos(data);
+    }
     setAviso(
       ok
         ? { texto: sucesso, tom: 'sucesso' }
@@ -295,8 +301,8 @@ export function AddressesView() {
               setEditando(null);
               setCriando(false);
             }}
-            onSalvar={() => {
-              void tentar(salvarEndereco, 'Endereço salvo');
+            onSalvar={(dados) => {
+              void tentar(() => salvarEndereco(dados, editando?.id ?? null), 'Endereço salvo');
             }}
           />
         </div>
@@ -361,7 +367,7 @@ export function AddressesView() {
               {!a.is_default && (
                 <button
                   type="button"
-                  onClick={() => void tentar(marcarEnderecoPrincipal, 'Endereço principal atualizado')}
+                  onClick={() => void tentar(() => marcarEnderecoPrincipal(a.id), 'Endereço principal atualizado')}
                   className="h-10 rounded-xl border border-border px-4 text-[10px] font-bold uppercase tracking-widest transition-colors hover:bg-secondary/50"
                 >
                   Tornar principal
@@ -383,7 +389,7 @@ export function AddressesView() {
               */}
               <button
                 type="button"
-                onClick={() => void tentar(excluirEndereco, 'Removido')}
+                onClick={() => void tentar(() => excluirEndereco(a.id), 'Removido')}
                 className="ml-auto inline-flex h-10 items-center gap-2 rounded-xl border border-border px-4 text-[10px] font-bold uppercase tracking-widest text-danger transition-colors hover:bg-danger-surface"
               >
                 <Trash2 className="size-3.5" aria-hidden /> Excluir

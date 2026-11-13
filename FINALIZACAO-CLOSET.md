@@ -23,7 +23,7 @@ Produção: https://closetlunar.vercel.app (deploy automático a partir da branc
 2. No site: `/admin/configuracoes` → aba Melhor Envio → colar o token, informar o **CEP de origem** da loja → Salvar → Testar cotação.
 
 ## Recomendado antes de vender
-- Conferir se a InfiniteTag `unitrix` é mesmo a conta que deve receber; se não, trocar em Admin → Configurações → Pagamentos.
+- Pagamentos caem na conta InfinitePay **Closet Lunar** (`$closetlunaar`, Carinna Tavares).
 - Fazer uma compra real de menor valor no Pix e conferir em `/admin/pedidos`.
 - Cadastrar fotos reais nos produtos (o seed não tem imagens).
 - Opcional: `RESEND_API_KEY` + `AVISO_EMAIL_*` para e-mails de pedido pago.

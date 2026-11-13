@@ -134,14 +134,14 @@ export function CartDrawer() {
                 <span className="font-serif text-2xl">{formatBRL(subtotal)}</span>
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                Frete e pagamento ainda indisponíveis.
+                Frete calculado no checkout. Pague no Pix ou cartão.
               </p>
               <Link
                 href="/checkout"
                 onClick={fechar}
                 className="mt-4 block w-full rounded-full bg-foreground py-3.5 text-center text-xs font-medium uppercase tracking-[0.18em] text-background"
               >
-                Ver resumo da sacola
+                Finalizar compra
               </Link>
             </footer>
           </>

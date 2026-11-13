@@ -120,7 +120,6 @@ export default async function ProdutoPage({ params }: { params: Promise<{ slug: 
 
         <div>
           <h1 className="font-serif text-3xl leading-tight md:text-4xl">{produto.name}</h1>
-          <p className="mt-2 text-xs text-muted-foreground">Catálogo demonstrativo: preço e disponibilidade precisam de confirmação da loja.</p>
 
           <div className="mt-4">
             {temDesconto && (
@@ -133,7 +132,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ slug: 
             )}
             <div className="text-3xl font-medium">{formatBRL(preco)}</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Condições de pagamento a definir
+              No Pix ou no cartão, com pagamento seguro
             </div>
           </div>
 
@@ -158,13 +157,13 @@ export default async function ProdutoPage({ params }: { params: Promise<{ slug: 
 
           <div className="mt-8 space-y-3 text-sm text-muted-foreground">
             <div className="flex items-center gap-3">
-              <Truck className="size-4" aria-hidden /> Frete a confirmar com a loja
+              <Truck className="size-4 shrink-0" aria-hidden /> Frete calculado pelo CEP no checkout · grátis acima de R$ 299
             </div>
             <div className="flex items-center gap-3">
-              <RefreshCw className="size-4" aria-hidden /> Consulte a política de trocas
+              <RefreshCw className="size-4 shrink-0" aria-hidden /> Primeira troca grátis em até 7 dias
             </div>
             <div className="flex items-center gap-3">
-              <ShieldCheck className="size-4" aria-hidden /> Pagamento online ainda indisponível
+              <ShieldCheck className="size-4 shrink-0" aria-hidden /> Pagamento seguro pela InfinitePay
             </div>
           </div>
         </div>

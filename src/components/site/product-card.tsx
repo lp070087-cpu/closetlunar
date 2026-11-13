@@ -87,12 +87,12 @@ export function ProductCard({ product }: { product: Product }) {
         )}
 
         {selos.length > 0 && (
-          <div className="absolute left-3 top-3 z-10 flex flex-col items-start gap-1.5">
+          <div className="absolute left-2 top-2 z-10 flex max-w-[calc(100%-3.5rem)] flex-col items-start gap-1.5 md:left-3 md:top-3">
             {selos.slice(0, 2).map((s) => (
               <span
                 key={s.label}
                 className={
-                  'rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] backdrop-blur ' +
+                  'max-w-full truncate rounded-full px-2 py-0.5 text-[9px] font-medium uppercase tracking-[0.08em] backdrop-blur md:px-2.5 md:py-1 md:text-[10px] md:tracking-[0.12em] ' +
                   (s.tom === 'escuro'
                     ? 'bg-foreground text-background'
                     : 'border border-border/60 bg-background/95 text-foreground')
@@ -107,13 +107,13 @@ export function ProductCard({ product }: { product: Product }) {
         <Link
           href="/conta/favoritos"
           aria-label={`Favoritar ${product.name}`}
-          className="focus-ring absolute right-3 top-3 z-10 grid size-9 place-items-center rounded-full bg-background/90 text-foreground shadow-soft transition-transform hover:scale-105"
+          className="focus-ring absolute right-2 top-2 z-10 grid size-8 place-items-center md:right-3 md:top-3 md:size-9 rounded-full bg-background/90 text-foreground shadow-soft transition-transform hover:scale-105"
         >
           <Heart className="size-4" aria-hidden />
         </Link>
       </div>
 
-      <div className="flex flex-col gap-2 p-3 md:p-4">
+      <div className="flex flex-1 flex-col gap-2 p-3 md:p-4">
         <Link
           href={`/produto/${product.slug}`}
           className="line-clamp-2 min-h-[2.5rem] text-xs font-medium leading-snug transition-colors hover:text-accent md:text-sm"
@@ -161,21 +161,28 @@ export function ProductCard({ product }: { product: Product }) {
             {formatBRL(preco)}
           </span>
           <span className="text-[11px] text-muted-foreground">
-            Condições de pagamento a definir
+            Pix ou cartão
           </span>
         </div>
 
-        <div className="mt-2 flex min-w-0 flex-col gap-1.5 md:gap-2">
+        <div className="mt-auto flex min-w-0 flex-col gap-1.5 pt-2 md:gap-2">
           <BotaoComprar product={product} className="w-full" />
           <a
             href={linkDuvida(product, whatsapp)}
             aria-disabled={!whatsapp}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-full border border-border bg-background py-2 text-[9px] font-medium uppercase leading-tight tracking-[0.08em] text-foreground transition-colors hover:border-foreground md:py-2.5 md:text-[11px] md:tracking-[0.15em]"
+            className="inline-flex h-9 w-full min-w-0 items-center justify-center gap-1.5 rounded-full border border-border bg-background px-2 text-[10px] font-medium uppercase tracking-[0.06em] text-foreground transition-colors hover:border-[#25D366] hover:text-[#128C7E] md:h-10 md:gap-2 md:text-[11px] md:tracking-[0.12em]"
           >
             <MessageCircle className="size-3.5 shrink-0" aria-hidden />
-            <span className="truncate">{whatsapp ? "Tirar dúvida pelo WhatsApp" : "Contato indisponível"}</span>
+            {whatsapp ? (
+              <span className="whitespace-nowrap">
+                <span className="md:hidden">Dúvidas</span>
+                <span className="hidden md:inline">Tirar dúvida</span>
+              </span>
+            ) : (
+              <span className="whitespace-nowrap">Indisponível</span>
+            )}
           </a>
         </div>
       </div>

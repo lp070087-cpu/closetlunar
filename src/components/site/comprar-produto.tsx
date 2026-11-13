@@ -134,7 +134,7 @@ export function ComprarProduto({ product }: { product: Product }) {
 
       <div className="mt-5">
         <div className="mb-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">Quantidade</div>
-        <div className="inline-flex rounded border border-border">
+        <div className="inline-flex overflow-hidden rounded-full border border-border">
           <button
             type="button"
             aria-label="Diminuir"
@@ -161,7 +161,7 @@ export function ComprarProduto({ product }: { product: Product }) {
           type="button"
           onClick={adicionar}
           disabled={!podeComprar}
-          className="flex w-full items-center justify-center gap-2 rounded bg-foreground py-3 text-sm font-medium tracking-wider text-background disabled:opacity-50"
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-4 text-xs font-medium uppercase tracking-[0.16em] text-background transition hover:bg-foreground/90 disabled:opacity-50"
         >
           {adicionado && <Check className="size-4" aria-hidden />}
           {esgotado
@@ -179,9 +179,9 @@ export function ComprarProduto({ product }: { product: Product }) {
           aria-disabled={!whatsapp}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex w-full items-center justify-center gap-2 rounded border border-[#25D366] py-3 text-sm font-medium text-[#25D366]"
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-full border border-[#25D366] px-4 text-xs font-medium uppercase tracking-[0.14em] text-[#128C7E] transition hover:bg-[#25D366]/10"
         >
-          <MessageCircle className="size-4" aria-hidden /> Consultar pelo WhatsApp
+          <MessageCircle className="size-4 shrink-0" aria-hidden /> <span>Tirar dúvida pelo WhatsApp</span>
         </a>
       </div>
     </>

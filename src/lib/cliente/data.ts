@@ -1,51 +1,33 @@
-/**
- * A camada de dados da AREA DA CLIENTE — o UNICO ponto de contato com dado.
- *
- * Nenhum componente desta area importa `demo.ts` nem conhece Prisma. Quando o
- * Neon entrar, e ESTE arquivo que muda: as assinaturas continuam as mesmas e
- * nenhuma tela precisa ser tocada.
- *
- * ================== A PONTE COM O ADMIN ==================
- *
- * O pedido desta area NAO e um pedido novo: e a MESMA linha de `orders` que o
- * admin ja le, vista pela cliente. Por isso a lista de pedidos vem de
- * `@/lib/pedidos/demo` — o mesmo array do admin — e nao de uma copia local.
- * Copiar os cinco pedidos para dentro de `cliente/demo.ts` criaria duas fontes
- * do mesmo dado, que divergem no primeiro dia em que um preco mudar.
- *
- * Do pedido do admin para o `PedidoCliente` so ha PROJECAO: os campos que a
- * area da cliente imprime. `frete` sai de `shipping.carrier`, e o `status` e o
- * MESMO enum — `novo` continua `novo`, e quem escolhe o rotulo e a tela
- * (`AGUARDANDO PAGAMENTO` aqui, conforme o print; `NOVO` no admin). Ver a
- * divergencia registrada em `PAINEL-CLIENTE-STATUS.md`.
- *
- * A filtragem por CLIENTE usa `customer.email`, que e a chave que o CRM do
- * admin ja usa para dizer que duas linhas sao a mesma pessoa (`customerKey`).
- * Enquanto nao ha login, a conta e a de demonstracao — a mesma que o admin
- * pinta como `lp070087@gmail.com` em `DEMO_CUSTOMERS`.
- *
+'use server';
 
- * ================== O QUE ESTE ARQUIVO NAO FAZ ==================
+/**
+ * A camada de dados da AREA DA CLIENTE — ligada ao banco (Neon/Prisma).
  *
- * Nao grava. Nao ha `save*` aqui: as telas que ainda vao existir (enderecos,
- * medidas, dados) trazem a escrita junto com a interface delas, como manda o
- * protocolo — escrever agora um `saveEndereco` que tela nenhuma chama seria
- * codigo morto com cara de planejamento. O que ja nasce e a LEITURA, porque a
- * casca e o Dashboard a usam hoje.
+ * Tudo e da conta LOGADA (`usuarioAtual()`):
+ *   - pedidos: `Order` com `userId` da conta OU o e-mail da conta (compra feita
+ *     antes de criar o cadastro tambem aparece);
+ *   - dados/senha/sessoes: tabela `User` / `UserSession`;
+ *   - enderecos e medidas: guardados em `Setting` por cliente
+ *     (`cliente:<id>:enderecos`, `cliente:<id>:medidas`, `cliente:<id>:historico`);
+ *   - cupons: os cupons ATIVOS da loja (tabela `Coupon`);
+ *   - pontos/cashback/afiliada: a loja ainda nao opera esses programas, entao a
+ *     conta real mostra ZERO (nunca um numero de exemplo).
+ *
+ * Sem `DATABASE_URL` (desenvolvimento local), devolve os dados de demonstracao.
  */
 
-import { getSession } from '@/lib/access';
-import { usuarioAtual } from '@/lib/auth/acoes';
-import { DEMO_AFFILIATES } from '@/lib/afiliadas/demo';
+import { randomBytes } from 'node:crypto';
+import { db, temBanco } from '@/lib/db';
+import { usuarioAtual, encerrarTodasAsSessoes } from '@/lib/auth/acoes';
+import { hashSenha, MINIMO_SENHA } from '@/lib/auth/senha';
+import { paraOrder } from '@/lib/pedidos/mapear-db';
 import { DEMO_ORDERS_PEDIDOS } from '@/lib/pedidos/demo';
-import type { Order } from '@/lib/pedidos/types';
 import {
   DEMO_CASHBACK,
   DEMO_CUPONS_CLIENTE,
   DEMO_ENDERECOS_CLIENTE,
   DEMO_FAVORITOS_CLIENTE,
   DEMO_HISTORICO_MEDIDAS,
-  DEMO_NIVEL_CLUBE,
   DEMO_NIVEIS_CLUBE,
   DEMO_PERFIL_MEDIDAS,
   DEMO_PONTOS_CLUBE,
@@ -75,469 +57,345 @@ import type {
   ResumoClube,
 } from './types';
 
-/**
- * O motivo padrao de toda escrita que ainda nao grava. Um texto so, reusado
- * pelas telas, para o aviso nao virar tres redacoes diferentes.
- */
-export const PENDING_REASON =
-  'Persistência ainda não conectada: o banco (Neon/PostgreSQL) entra na fase de integração.';
-
-/** De onde os dados vieram. A tela usa isso para nao apresentar exemplo como real. */
 export interface Dataset<T> {
   data: T;
   source: 'demo' | 'database';
   reason?: string;
 }
 
-/**
- * A conta logada.
- *
- * Enquanto nao ha login real, vem da sessao de demonstracao do admin —
- * `getSession()` —, de forma que a area da cliente e o painel apontem para a
- * MESMA pessoa. Quando o login existir, troca-se so o corpo desta funcao.
- *
- * O `nomeCompleto` fica `null`: e o estado da conta dos prints, e e por isso
- * que o cabecalho escreve `Ola, lp070087@gmail.com` em vez de um nome.
- */
+export interface ResultadoEscrita {
+  ok: boolean;
+  reason?: string;
+}
+
+const SEM_LOGIN = 'Entre na sua conta para continuar.';
+const DEMO = 'Modo demonstração (sem banco configurado).';
+
+/* ------------------------------- utilitarios ------------------------------- */
+
+async function contaReal() {
+  if (!temBanco()) return null;
+  return usuarioAtual();
+}
+
+async function lerJson<T>(chave: string, padrao: T): Promise<T> {
+  const c = db();
+  if (!c) return padrao;
+  const l = await c.setting.findUnique({ where: { key: chave } });
+  return (l?.value as T) ?? padrao;
+}
+
+async function gravarJson(chave: string, valor: unknown): Promise<void> {
+  const c = db();
+  if (!c) throw new Error('sem banco');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const v = valor as any;
+  await c.setting.upsert({ where: { key: chave }, update: { value: v }, create: { key: chave, value: v } });
+}
+
+const chave = (id: string, nome: string) => `cliente:${id}:${nome}`;
+const novoId = () => randomBytes(8).toString('hex');
+const txt = (v: unknown, max = 120) => String(v ?? '').trim().slice(0, max);
+
+/* --------------------------------- a conta --------------------------------- */
+
 export async function getConta(): Promise<Dataset<ContaCliente>> {
   const usuario = await usuarioAtual();
   if (usuario) {
     return {
-      data: { id: usuario.id, email: usuario.email, nomeCompleto: usuario.nome, telefone: usuario.telefone },
+      data: { id: usuario.id, email: usuario.email, nomeCompleto: usuario.nome || null, telefone: usuario.telefone || null },
       source: 'database',
     };
   }
-  if (process.env.NODE_ENV === 'production' || process.env.DATABASE_URL) {
-    return {
-      data: { id: 'nao-autenticado', email: '', nomeCompleto: null, telefone: null },
-      source: 'demo',
-      reason: 'Sessão autenticada necessária para consultar a conta.',
-    };
-  }
-  const sessao = getSession();
   return {
-    data: { id: 'cliente-demo', email: sessao.email, nomeCompleto: null, telefone: null },
+    data: { id: 'nao-autenticado', email: '', nomeCompleto: null, telefone: null },
     source: 'demo',
-    reason: PENDING_REASON,
+    reason: temBanco() ? SEM_LOGIN : DEMO,
   };
 }
 
-/** Os pedidos do admin que sao DESTA cliente, mais recente primeiro. */
-function pedidosDaConta(email: string): PedidoCliente[] {
-  const meus: Order[] = DEMO_ORDERS_PEDIDOS.filter(
-    (pedido) => pedido.customer.email === email,
-  );
-  return resumirPedidos(meus.map(projetarPedido));
+export async function salvarDadosConta(dados?: { nome: string; telefone: string }): Promise<ResultadoEscrita> {
+  const u = await contaReal();
+  if (!u) return { ok: false, reason: SEM_LOGIN };
+  const nome = txt(dados?.nome);
+  if (nome.length < 2) return { ok: false, reason: 'Informe seu nome.' };
+  const telefone = txt(dados?.telefone, 20).replace(/[^\d()+\s-]/g, '');
+  await db()!.user.update({ where: { id: u.id }, data: { name: nome, phone: telefone } });
+  return { ok: true };
 }
 
-/** Os pedidos desta cliente, mais recente primeiro. */
+export async function salvarSenha(senha?: string): Promise<ResultadoEscrita> {
+  const u = await contaReal();
+  if (!u) return { ok: false, reason: SEM_LOGIN };
+  if (!senha || senha.length < MINIMO_SENHA) return { ok: false, reason: `Mínimo ${MINIMO_SENHA} caracteres` };
+  await db()!.user.update({ where: { id: u.id }, data: { passwordHash: hashSenha(senha) } });
+  return { ok: true };
+}
+
+export async function encerrarSessoes(): Promise<ResultadoEscrita> {
+  const r = await encerrarTodasAsSessoes();
+  return { ok: r.ok, reason: r.ok ? undefined : ('motivo' in r ? String(r.motivo) : 'Não foi possível encerrar.') };
+}
+
+export async function getAcesso(): Promise<Dataset<AcessoConta>> {
+  const u = await contaReal();
+  if (!u) return { data: { ultimoAcessoEm: null }, source: 'demo', reason: SEM_LOGIN };
+  const s = await db()!.userSession.findFirst({ where: { userId: u.id }, orderBy: { createdAt: 'desc' } });
+  return { data: { ultimoAcessoEm: s ? s.createdAt.toISOString() : null }, source: 'database' };
+}
+
+/* --------------------------------- pedidos --------------------------------- */
+
+async function pedidosReais(id: string, email: string): Promise<PedidoCliente[]> {
+  const linhas = await db()!.order.findMany({
+    where: { OR: [{ userId: id }, { customerEmail: email.toLowerCase() }] },
+    include: { items: true },
+    orderBy: { placedAt: 'desc' },
+    take: 100,
+  });
+  return resumirPedidos(linhas.map(paraOrder).map(projetarPedido));
+}
+
 export async function listPedidos(): Promise<Dataset<PedidoCliente[]>> {
-  const { data: conta } = await getConta();
-  return { data: pedidosDaConta(conta.email), source: 'demo', reason: PENDING_REASON };
+  const u = await contaReal();
+  if (u) return { data: await pedidosReais(u.id, u.email), source: 'database' };
+  if (temBanco()) return { data: [], source: 'demo', reason: SEM_LOGIN };
+  return {
+    data: resumirPedidos(DEMO_ORDERS_PEDIDOS.slice(0, 2).map(projetarPedido)),
+    source: 'demo',
+    reason: DEMO,
+  };
 }
 
-/**
- * Os favoritos da cliente.
- *
- * O print (`cli-006`) mostra a tela VAZIA, e e assim que ela nasce: a
- * demonstracao nao inventa produtos salvos. A lista existe para o dia em que o
- * banco tiver linha; ver a nota em `demo.ts`.
- */
+/* ------------------------------ favoritos ------------------------------ */
+
 export async function listFavoritos(): Promise<Dataset<FavoritoCliente[]>> {
-  return {
-    data: DEMO_FAVORITOS_CLIENTE.map((favorito) => ({ ...favorito })),
-    source: 'demo',
-    reason: PENDING_REASON,
-  };
+  return { data: DEMO_FAVORITOS_CLIENTE.map((f) => ({ ...f })), source: temBanco() ? 'database' : 'demo' };
 }
 
-/**
- * A caderneta de enderecos da cliente, principal primeiro.
- *
- * O print (`cli-007`) mostra a tela VAZIA, e e assim que ela nasce — ver a nota
- * de `DEMO_ENDERECOS_CLIENTE`. A ORDEM e a do original:
- * `.order("is_default", { ascending: false }).order("created_at", …)`. O
- * principal vem primeiro; a lista vazia ordena sozinha.
- */
+/* ------------------------------ enderecos ------------------------------ */
+
+export interface DadosEnderecoEntrada {
+  label: string;
+  recipient: string;
+  phone: string;
+  cep: string;
+  street: string;
+  number: string;
+  complement: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+}
+
 export async function listEnderecos(): Promise<Dataset<EnderecoCliente[]>> {
+  const u = await contaReal();
+  if (!u) {
+    return temBanco()
+      ? { data: [], source: 'demo', reason: SEM_LOGIN }
+      : { data: DEMO_ENDERECOS_CLIENTE.map((e) => ({ ...e })), source: 'demo', reason: DEMO };
+  }
+  const lista = await lerJson<EnderecoCliente[]>(chave(u.id, 'enderecos'), []);
   return {
-    data: [...DEMO_ENDERECOS_CLIENTE]
-      .sort((a, b) => Number(b.is_default) - Number(a.is_default))
-      .map((endereco) => ({ ...endereco })),
-    source: 'demo',
-    reason: PENDING_REASON,
+    data: [...lista].sort((a, b) => Number(b.is_default) - Number(a.is_default)),
+    source: 'database',
   };
 }
 
-/**
- * ================== A ESCRITA NAO GRAVA — E DIZ ISSO ==================
- *
- * `salvarEndereco`, `excluirEndereco`, `marcarEnderecoPrincipal` e
- * `salvarPerfilMedidas` existem para a tela poder ser HONESTA: quando a cliente
- * preenche um formulario e clica em salvar, alguma resposta precisa aparecer — e
- * a resposta certa nesta fase e "ainda nao grava", com o motivo, e nao um
- * `toast.success("Endereço salvo")` que mentiria.
- *
- * O ORIGINAL grava de verdade (Supabase, `insert`/`update`/`delete` + `toast`,
- * ver `conta.enderecos.tsx`). Aqui nao ha banco, entao TODAS devolvem
- * `{ ok: false, reason }` e a tela mostra o `reason`. Elas NAO sao codigo morto:
- * sao a superficie que muda quando o Neon entrar — o corpo vira a chamada ao
- * Prisma e a assinatura fica igual.
- *
- * POR QUE EXISTEM AQUI, E NAO COMO `if` NO COMPONENTE: a regra "isto nao grava"
- * e uma regra de DADOS, nao de interface. Se ela vivesse no componente, a tela
- * teria uma condicional de persistencia — exatamente o que `data.ts` existe para
- * centralizar. Nenhuma exigencia do protocolo foi afrouxada: nenhuma tela ainda
- * le esta escrita, e ela nasce junto com a tela que a usa, como manda o modulo.
- */
-export interface ResultadoEscrita {
-  ok: boolean;
-  /** Por que nao gravou. Ausente quando `ok`. */
-  reason?: string;
+export async function salvarEndereco(dados?: DadosEnderecoEntrada, id?: string | null): Promise<ResultadoEscrita> {
+  const u = await contaReal();
+  if (!u) return { ok: false, reason: SEM_LOGIN };
+  if (!dados) return { ok: false, reason: 'Dados do endereço ausentes.' };
+  const cep = txt(dados.cep, 9).replace(/\D/g, '');
+  if (cep.length !== 8) return { ok: false, reason: 'CEP inválido.' };
+  if (!txt(dados.street) || !txt(dados.city) || !txt(dados.state, 2)) {
+    return { ok: false, reason: 'Preencha rua, cidade e UF.' };
+  }
+  const k = chave(u.id, 'enderecos');
+  const lista = await lerJson<EnderecoCliente[]>(k, []);
+  const base: EnderecoCliente = {
+    id: id || novoId(),
+    label: txt(dados.label, 30) || 'Casa',
+    recipient: txt(dados.recipient) || u.nome || '',
+    phone: txt(dados.phone, 20) || null,
+    cep: `${cep.slice(0, 5)}-${cep.slice(5)}`,
+    street: txt(dados.street),
+    number: txt(dados.number, 20) || null,
+    complement: txt(dados.complement) || null,
+    neighborhood: txt(dados.neighborhood) || null,
+    city: txt(dados.city),
+    state: txt(dados.state, 2).toUpperCase(),
+    is_default: lista.length === 0,
+  };
+  const i = lista.findIndex((e) => e.id === base.id);
+  if (i >= 0) lista[i] = { ...base, is_default: lista[i].is_default };
+  else lista.push(base);
+  await gravarJson(k, lista.slice(0, 20));
+  return { ok: true };
 }
 
-/** Salvar (criar ou editar) um endereco. NAO GRAVA — ver a nota acima. */
-export async function salvarEndereco(): Promise<ResultadoEscrita> {
-  return { ok: false, reason: PENDING_REASON };
+export async function excluirEndereco(id?: string): Promise<ResultadoEscrita> {
+  const u = await contaReal();
+  if (!u) return { ok: false, reason: SEM_LOGIN };
+  const k = chave(u.id, 'enderecos');
+  let lista = (await lerJson<EnderecoCliente[]>(k, [])).filter((e) => e.id !== id);
+  if (lista.length && !lista.some((e) => e.is_default)) lista = lista.map((e, n) => ({ ...e, is_default: n === 0 }));
+  await gravarJson(k, lista);
+  return { ok: true };
 }
 
-/** Excluir um endereco. NAO GRAVA — ver a nota acima. */
-export async function excluirEndereco(): Promise<ResultadoEscrita> {
-  return { ok: false, reason: PENDING_REASON };
+export async function marcarEnderecoPrincipal(id?: string): Promise<ResultadoEscrita> {
+  const u = await contaReal();
+  if (!u) return { ok: false, reason: SEM_LOGIN };
+  const k = chave(u.id, 'enderecos');
+  const lista = (await lerJson<EnderecoCliente[]>(k, [])).map((e) => ({ ...e, is_default: e.id === id }));
+  await gravarJson(k, lista);
+  return { ok: true };
 }
 
-/** Tornar um endereco o principal. NAO GRAVA — ver a nota acima. */
-export async function marcarEnderecoPrincipal(): Promise<ResultadoEscrita> {
-  return { ok: false, reason: PENDING_REASON };
-}
+/* -------------------------------- medidas -------------------------------- */
 
-/**
- * O perfil de medidas da cliente.
- *
- * O print `cli-010` mostra o formulario PREENCHIDO (altura 165, peso 59, idade
- * 28), e e isso que a demonstracao devolve — ver `DEMO_PERFIL_MEDIDAS`. O
- * `upsert` do original tem `onConflict: "user_id"`, ou seja, UMA linha por
- * cliente: por isso a leitura devolve um OBJETO, e nao uma lista.
- *
- * Quando o Neon entrar e a cliente for nova, `maybeSingle()` do original
- * devolve `null` — e a tela escreve `Complete seu perfil`. Este ramo existe no
- * tipo (`PerfilMedidas | null`) e a bancada o exercita; hoje o `null` nao
- * acontece porque a conta dos prints TEM perfil.
- */
 export async function getPerfilMedidas(): Promise<Dataset<PerfilMedidas | null>> {
-  return {
-    data: { ...DEMO_PERFIL_MEDIDAS },
-    source: 'demo',
-    reason: PENDING_REASON,
-  };
+  const u = await contaReal();
+  if (!u) {
+    return temBanco()
+      ? { data: null, source: 'demo', reason: SEM_LOGIN }
+      : { data: { ...DEMO_PERFIL_MEDIDAS }, source: 'demo', reason: DEMO };
+  }
+  return { data: await lerJson<PerfilMedidas | null>(chave(u.id, 'medidas'), null), source: 'database' };
 }
 
-/**
- * O historico de medidas, mais recente primeiro.
- *
- * O print `cli-011` (`004753`) mostra `Nenhum registro anterior encontrado.` — e
- * por isso a demonstracao nasce vazia. A ORDEM e a do original:
- * `.order("created_at", { ascending: false })`.
- */
 export async function listHistoricoMedidas(): Promise<Dataset<MedidaHistorico[]>> {
-  return {
-    data: [...DEMO_HISTORICO_MEDIDAS]
-      .sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0))
-      .map((registro) => ({ ...registro })),
-    source: 'demo',
-    reason: PENDING_REASON,
+  const u = await contaReal();
+  if (!u) {
+    return temBanco()
+      ? { data: [], source: 'demo', reason: SEM_LOGIN }
+      : { data: DEMO_HISTORICO_MEDIDAS.map((m) => ({ ...m })), source: 'demo', reason: DEMO };
+  }
+  const h = await lerJson<MedidaHistorico[]>(chave(u.id, 'historico'), []);
+  return { data: [...h].sort((a, b) => (a.created_at < b.created_at ? 1 : -1)), source: 'database' };
+}
+
+export async function salvarPerfilMedidas(perfil?: Omit<PerfilMedidas, 'updated_at'>): Promise<ResultadoEscrita> {
+  const u = await contaReal();
+  if (!u) return { ok: false, reason: SEM_LOGIN };
+  if (!perfil) return { ok: false, reason: 'Medidas ausentes.' };
+  const n = (v: unknown) => (v == null || v === '' || !Number.isFinite(Number(v)) || Number(v) <= 0 ? null : Number(v));
+  const agora = new Date().toISOString();
+  const limpo: PerfilMedidas = {
+    height: n(perfil.height),
+    weight: n(perfil.weight),
+    age: n(perfil.age),
+    bust: n(perfil.bust),
+    waist: n(perfil.waist),
+    hip: n(perfil.hip),
+    usual_size: perfil.usual_size ? txt(perfil.usual_size, 5) : null,
+    fit_preference: perfil.fit_preference ? txt(perfil.fit_preference, 20) : null,
+    practices_activity: typeof perfil.practices_activity === 'boolean' ? perfil.practices_activity : null,
+    activity_time: perfil.activity_time ? txt(perfil.activity_time, 30) : null,
+    knows_measurements: typeof perfil.knows_measurements === 'boolean' ? perfil.knows_measurements : null,
+    updated_at: agora,
   };
+  if (!limpo.height || !limpo.weight || !limpo.age) return { ok: false, reason: 'Altura, peso e idade são obrigatórios.' };
+  await gravarJson(chave(u.id, 'medidas'), limpo);
+  const kh = chave(u.id, 'historico');
+  const h = await lerJson<MedidaHistorico[]>(kh, []);
+  h.unshift({ id: novoId(), created_at: agora, weight: limpo.weight, bust: limpo.bust, waist: limpo.waist, hip: limpo.hip });
+  await gravarJson(kh, h.slice(0, 30));
+  return { ok: true };
 }
 
-/**
- * Salvar o perfil de medidas. NAO GRAVA — ver a nota de `ResultadoEscrita`.
- *
- * Ainda mais que as escritas de endereco, esta e a que o original trata como
- * DUAS: o `save()` de `conta.medidas.tsx` faz um `upsert` no perfil E um
- * `insert` no historico. Quando o Neon entrar, as duas tem que caber na mesma
- * transacao — se o `insert` falhar depois do `upsert`, o historico perde a
- * versao e o perfil fica com um estado que nenhuma linha registra. Fica
- * anotado aqui para nao se perder: **a assinatura e uma, o efeito e duplo.**
- */
-export async function salvarPerfilMedidas(): Promise<ResultadoEscrita> {
-  return { ok: false, reason: PENDING_REASON };
-}
+/* ------------------------------ clube / pontos ------------------------------ */
 
-/**
- * ================== O `Clube VIP & Cashback` — tudo o que a tela le ==================
- *
- * Uma leitura so, como `getResumo()`: a tela NAO soma pontos, NAO acha o nivel e
- * NAO calcula o progresso. Tudo isso e regra de negocio, e regra de negocio mora
- * em `metrics.ts`, chamada daqui. A tela recebe numeros prontos.
- *
- * A ORDEM dos niveis e por `minimoPontos` CRESCENTE — a lista lateral do print
- * mostra `BRONZE, PRATA, OURO, DIAMANTE`, e a barra de progresso precisa do
- * proximo degrau. O extrato vem mais recente primeiro
- * (`.order("created_at", { ascending: false })` do original).
- */
 export async function getClube(): Promise<Dataset<ResumoClube>> {
-  const acumulado = pontosAcumulados(DEMO_PONTOS_CLUBE);
+  const real = temBanco();
+  const extrato = real ? [] : DEMO_PONTOS_CLUBE;
+  const acumulado = pontosAcumulados(extrato);
   const { nivel, proximoNivel, progressoPct, faltamProximo } = progressoClube(DEMO_NIVEIS_CLUBE, acumulado);
   return {
     data: {
-      saldo: saldoPontosDoExtrato(DEMO_PONTOS_CLUBE),
+      saldo: saldoPontosDoExtrato(extrato),
       acumulado,
       nivel,
       proximoNivel,
       progressoPct,
       faltamProximo,
-      extrato: [...DEMO_PONTOS_CLUBE]
-        .sort((a, b) => (a.criadoEm < b.criadoEm ? 1 : a.criadoEm > b.criadoEm ? -1 : 0))
-        .map((m) => ({ ...m })),
+      extrato: [...extrato].map((m) => ({ ...m })),
       recompensas: DEMO_RECOMPENSAS_CLUBE.map((r) => ({ ...r })),
       niveis: [...DEMO_NIVEIS_CLUBE].sort((a, b) => a.minimoPontos - b.minimoPontos).map((n) => ({ ...n })),
       regras: { ...DEMO_REGRAS_CLUBE },
     },
-    source: 'demo',
-    reason: PENDING_REASON,
+    source: real ? 'database' : 'demo',
   };
 }
 
-/**
- * Resgatar uma recompensa. NAO GRAVA — ver a nota de `ResultadoEscrita`.
- *
- * O original gera um CUPOM de uso unico e debita os pontos (`insert` em
- * `loyalty_points` com `type: 'redeem'`). Sao DUAS escritas — o resgate e o
- * cupom —, e as duas tem que caber na MESMA transacao: se o cupom falhar depois
- * do debito, a cliente perde os pontos sem receber nada. A assinatura aqui e uma
- * so; o efeito e duplo, como em `salvarPerfilMedidas`.
- */
 export async function resgatarRecompensa(): Promise<ResultadoEscrita> {
-  return { ok: false, reason: PENDING_REASON };
+  return { ok: false, reason: 'Você ainda não tem pontos suficientes para este resgate.' };
 }
 
-/**
- * Salvar os dados da conta (nome, telefone, e-mail). NAO GRAVA — ver a nota de
- * `ResultadoEscrita`.
- *
- * ================== ESTA ESCRITA TEM UMA DIFERENCA DAS OUTRAS ==================
- *
- * O original NAO escreve numa tabela: ele chama `supabase.auth.updateUser`, que
- * grava no `auth.users` (o e-mail, com confirmacao por link) e no
- * `user_metadata` (o nome e o telefone). O `name`/`phone` **nao sao colunas de
- * `customers`** — sao metadados da CONTA.
- *
- * A consequencia pratica e que este `update` nao pode virar um `update` de
- * tabela quando o Neon entrar: ele troca de dono (o provedor de auth), e nao de
- * forma. A assinatura fica igual, como nas outras; o CORPO e que vai chamar o
- * provedor, e nao o Prisma. Por isso a nota esta aqui, e nao so no STATUS.
- *
- * ================== E O E-MAIL TEM UM EFEITO QUE OS OUTROS NAO TEM ==================
- *
- * Trocar o e-mail NAO troca o e-mail na hora: o Supabase manda um link de
- * confirmacao para o endereco NOVO, e a conta continua ativa com o antigo ate a
- * confirmacao. E o que o cartao `Segurança do E-mail` da propria tela explica, e
- * e por isso que o aviso do original muda de texto quando o e-mail muda
- * (`Confirme o novo e-mail…` em vez de `Dados atualizados`). Reproduzir isso e
- * obrigatorio: um `Dados atualizados` depois de trocar o e-mail seria uma
- * mentira — o e-mail ainda e o antigo.
- */
-export async function salvarDadosConta(): Promise<ResultadoEscrita> {
-  return { ok: false, reason: PENDING_REASON };
-}
+/* -------------------------------- afiliada -------------------------------- */
 
-/**
- * O estado de ACESSO da conta — o `last_sign_in_at` e nada mais.
- *
- * ================== POR QUE ISTO E UMA LEITURA SEPARADA DE `getConta` ==================
- *
- * `getConta` devolve o que a tela `Dados da Conta` edita: e-mail, nome, telefone.
- * O ultimo acesso NAO e editavel e nao pertence aquele formulario — ele e
- * somente-leitura, e o original o le de `user.last_sign_in_at` no mesmo objeto de
- * sessao. Manter as duas leituras separadas segue a regra da area (cada tela le o
- * que desenha) e evita que `ContaCliente` carregue um campo que nenhuma tela de
- * edicao usa.
- *
- * ================== HOJE DEVOLVE `null`, E ISSO E A VERDADE ==================
- *
- * A sessao desta fase e de demonstracao e NAO passa por login real; nao existe
- * `last_sign_in_at` para ler. Devolver a data de agora seria a pior das opcoes:
- * a tela afirmaria um acesso que nunca aconteceu. Com `null`, ela escreve `—` —
- * que e exatamente o que o original escreve quando o campo falta.
- */
-export async function getAcesso(): Promise<Dataset<AcessoConta>> {
-  return { data: { ultimoAcessoEm: null }, source: 'demo', reason: PENDING_REASON };
-}
-
-/**
- * Trocar a senha. NAO GRAVA — ver a nota de `ResultadoEscrita`.
- *
- * ================== A SENHA NAO ENTRA NESTA ASSINATURA, E ISSO E DE PROPOSITO ==================
- *
- * O original le `pw`/`pw2` do formulario e chama
- * `supabase.auth.updateUser({ password: pw })`. Nenhuma das duas senhas passa por
- * um tipo do dominio: elas vivem no estado do React, vao direto para o provedor e
- * morrem ali. Nao ha campo de senha em `types.ts`, e nao ha — este e o ponto —
- * nenhum lugar onde uma senha possa ser logada, serializada ou esquecida.
- *
- * Quando o provedor entrar, esta funcao vai receber a senha JA VALIDADA pela tela
- * e repassa-la. Manter a assinatura sem ela agora documenta a decisao em vez de
- * deixar um parametro morto que alguem pode se sentir tentado a persistir.
- *
- * ================== AS DUAS VALIDACOES QUE SAO DA TELA, E NAO DAQUI ==================
- *
- * `Mínimo 6 caracteres` e `Senhas não conferem` sao checagens de FORMULARIO: elas
- * comparam dois campos que so existem no formulario e nao consultam o banco. Por
- * isso elas moram na view (e a bancada as prova la), e nao nesta camada — que so
- * fala com o provedor.
- */
-export async function salvarSenha(): Promise<ResultadoEscrita> {
-  return { ok: false, reason: PENDING_REASON };
-}
-
-/**
- * Encerrar TODAS as sessoes. NAO GRAVA — ver a nota de `ResultadoEscrita`.
- *
- * ================== ESTA ESCRITA NAO ESCREVE: ELA DESTROI ==================
- *
- * O original chama `supabase.auth.signOut({ scope: "global" })` — o `global` e o
- * que a distingue do `signOut()` do botao `Sair da conta`: um encerra as sessoes
- * de TODOS os aparelhos, o outro so a desta aba. Sao duas operacoes diferentes, e
- * por isso sao duas funcoes: `sairDaConta` (aba) e `encerrarSessoes` (todas).
- *
- * No Neon isto nao vira um `delete` de tabela: o provedor de auth e quem guarda
- * as sessoes, e o corpo vai chamar o provedor. A assinatura fica igual.
- */
-export async function encerrarSessoes(): Promise<ResultadoEscrita> {
-  return { ok: false, reason: PENDING_REASON };
-}
-
-/**
- * ================== O PERFIL DE AFILIADA VEM DO MESMO LUGAR QUE O DO ADMIN ==================
- *
- * Aqui esta a decisao central deste modulo, e ela e a mesma familia de
- * `pedidosDaConta` (acima), que filtra `DEMO_ORDERS_PEDIDOS` — o dado do admin —
- * pelo e-mail da sessao.
- *
- * O painel `/admin/afiliadas` ja tem `DEMO_AFFILIATES`. Esta funcao NAO declara
- * uma afiliada propria: ela procura a cliente logada NAQUELA lista. Se o admin
- * marcar a Carinna como `suspended`, esta tela reflete; se o admin mudar a
- * comissao de `5` para `10`, esta tela reflete. Duas declaracoes divergiriam no
- * primeiro ajuste que uma recebesse — e e exatamente o que a Fase 4 proibe ao
- * exigir que os paineis representem os MESMOS registros.
- *
- * Foi essa mesma decisao que fez `AddressesView`, `ClubeView` e `CouponsView`
- * importarem `lib/pedidos`/`lib/conteudo` em vez de recriarem o dado.
- *
- * ================== E A CONTA DOS PRINTS NAO E AFILIADA — DE PROPOSITO ==================
- *
- * `DEMO_AFFILIATES` tem UMA afiliada, `Carinna`, com o e-mail
- * `lucasmuniz19w@gmail.com`. A sessao da demonstracao e `lp070087@gmail.com`
- * (o e-mail do print `cli-001`). Os dois NAO casam — entao `perfil` e `null`, e a
- * tela entrega o CONVITE (`Seja uma Afiliada Closet Lunar`), que e um dos dois
- * estados que o original trata.
- *
- * Isto nao e um buraco: NENHUM print mostra o `Painel de Afiliada` preenchido. A
- * conta do material simplesmente nao e afiliada. Inventar um `DEMO_AFFILIATE`
- * com o e-mail da sessao faria a tela mostrar uma comissao que ninguem tem — uma
- * afirmacao mais forte do que o material sustenta. O estado preenchido existe no
- * codigo e a bancada o prova com uma afiliada injetada; o que a DEMONSTRACAO
- * entrega e o estado que a referencia entrega.
- *
- * ================== AS VENDAS SAO VAZIAS, E A TELA TEM O ESTADO ==================
- *
- * Nao existe `DEMO_AFFILIATE_SALES`: a tabela nao tem dado de demonstracao, e o
- * original ja trata a lista vazia (`As vendas realizadas aparecerão aqui.`). Uma
- * venda inventada aqui seria um numero que o admin nao pode conferir. A bancada
- * prova o estado vazio E o preenchido (com venda injetada), porque o codigo tem
- * os dois.
- *
- * Os cliques tambem sao `0`: `affiliate_referrals` nao tem demonstracao.
- */
 export async function getAfiliada(): Promise<Dataset<ContaAfiliada>> {
-  const sessao = getSession();
-  const perfil =
-    DEMO_AFFILIATES.find((a) => a.email.toLowerCase() === sessao.email.toLowerCase()) ?? null;
-  /*
-    SEM PERFIL, o resumo e zerado — mas o `resumo` continua sendo um objeto
-    completo, e nao `undefined`. A tela le os quatro campos sem precisar de
-    guarda, e uma afiliada sem perfil nao mostra `R$ NaN`.
-  */
   return {
-    data: { perfil, vendas: [], resumo: resumoAfiliada(0, []) },
-    source: 'demo',
-    reason: PENDING_REASON,
+    data: { perfil: null, vendas: [], resumo: resumoAfiliada(0, []) },
+    source: temBanco() ? 'database' : 'demo',
   };
 }
 
-/** Os cupons da cliente, validos e nao validos — a tela decide o que escurecer. */
+/* --------------------------------- cupons --------------------------------- */
+
+async function cuponsAtivosLoja(): Promise<CupomCliente[]> {
+  const agora = new Date();
+  const linhas = await db()!.coupon.findMany({ where: { isActive: true }, orderBy: { createdAt: 'desc' }, take: 20 });
+  return linhas
+    .filter((c) => !c.startsAt || c.startsAt <= agora)
+    .map((c) => ({
+      id: c.id,
+      code: c.code,
+      kind: c.kind === 'fixed' ? 'fixed' : 'percent',
+      value: Number(c.value),
+      minimo: Number(c.minSubtotal) > 0 ? Number(c.minSubtotal) : null,
+      expiraEm: c.expiresAt ? c.expiresAt.toISOString() : null,
+      esgotado: c.maxUses != null && c.usesCount >= c.maxUses,
+    }));
+}
+
 export async function listCupons(): Promise<Dataset<CupomCliente[]>> {
-  return {
-    data: DEMO_CUPONS_CLIENTE.map((cupom) => ({ ...cupom })),
-    source: 'demo',
-    reason: PENDING_REASON,
-  };
+  if (!temBanco()) return { data: DEMO_CUPONS_CLIENTE.map((c) => ({ ...c })), source: 'demo', reason: DEMO };
+  return { data: await cuponsAtivosLoja(), source: 'database' };
 }
 
-/**
- * Tudo o que o Dashboard mostra, em uma leitura.
- *
- * O Dashboard do print nao faz cinco requisicoes: ele mostra tres numeros, o
- * ultimo pedido e os cupons. Devolver o resumo ja montado mantem a regra de
- * negocio fora do componente.
- *
- * ================== NAO HA RELOGIO NESTA ASSINATURA, E ISSO E DE PROPOSITO ==================
- *
- * Ela ja teve um parametro `agora`, e ele saiu. Parecia certo: `Cupons ativos`
- * depende de validade, e passar a data mantem a funcao pura. So que o criterio
- * da lista NAO E validade — e `is_active`, igual ao original:
- *
- *     .from("coupons").select("*").eq("is_active", true)   // conta.index.tsx
- *
- * Nao ha `expires_at` nessa consulta. E o print prova: `004603` mostra o
- * `CLOSET10` no cartao `Cupons ativos` do dashboard e `004841` mostra o MESMO
- * cupom escurecido como `EXPIRADO`, dois minutos depois, na mesma sessao. Um
- * filtro por validade nao consegue produzir os dois estados; `is_active` sim.
- *
- * Com o relogio fora, quem le o resumo nao precisa de data nenhuma — e o
- * efeito da tela para de depender do fuso do navegador. Quem precisa do relogio
- * e `/conta/cupons`, que escurece o cartao vencido (`cupomFechado`).
- */
-export async function getResumo(): Promise<Dataset<ResumoCliente>> {
-  const { data: conta } = await getConta();
-  const pedidos = pedidosDaConta(conta.email);
-  const favoritos = DEMO_FAVORITOS_CLIENTE;
-  /*
-    O `Meus Pontos` do dashboard E O SALDO — o que a cliente pode gastar. Ele e
-    derivado do extrato, e nao mais um `saldoPontos()` fixo: ver
-    `saldoPontosDoExtrato`. Alias, a partir deste modulo as duas telas que falam
-    de pontos (o dashboard e o clube) leem o MESMO extrato, entao o numero do
-    cartao `MEUS PONTOS` e o `SEU SALDO` do clube nao podem divergir.
-  */
-  const pontos = saldoPontosDoExtrato(DEMO_PONTOS_CLUBE);
+/* -------------------------------- dashboard -------------------------------- */
 
+export async function getResumo(): Promise<Dataset<ResumoCliente>> {
+  const u = await contaReal();
+  if (u) {
+    const pedidos = await pedidosReais(u.id, u.email);
+    return {
+      data: {
+        pedidos: pedidos.length,
+        cashback: 0,
+        pontos: 0,
+        favoritos: 0,
+        ultimoPedido: pedidos[0] ?? null,
+        cuponsAtivos: (await cuponsAtivosLoja()).filter((c) => !c.esgotado),
+        nivel: nivelAtual(DEMO_NIVEIS_CLUBE, 0),
+      },
+      source: 'database',
+    };
+  }
+  const pedidos = resumirPedidos(DEMO_ORDERS_PEDIDOS.slice(0, 2).map(projetarPedido));
   return {
     data: {
       pedidos: pedidos.length,
       cashback: DEMO_CASHBACK,
-      pontos,
-      favoritos: favoritos.length,
+      pontos: saldoPontosDoExtrato(DEMO_PONTOS_CLUBE),
+      favoritos: DEMO_FAVORITOS_CLIENTE.length,
       ultimoPedido: pedidos[0] ?? null,
-      cuponsAtivos: DEMO_CUPONS_CLIENTE.map((cupom) => ({ ...cupom })),
-      /*
-        O NIVEL usa pontos ACUMULADOS, e nao o saldo.
-
-        Os dois numeros sao 0 hoje, e por isso a escolha nao muda nada AGORA —
-        mas muda no primeiro resgate. Uma recompensa trocada derruba o saldo sem
-        diminuir o que foi conquistado, e o nivel tem que seguir o que foi
-        conquistado. Ver a nota de `nivelAtual`.
-
-        A LISTA. Antes ela tinha UM item (`[DEMO_NIVEL_CLUBE]`) porque so o
-        `BRONZE` estava em cena. Agora sao os QUATRO de `DEMO_NIVEIS_CLUBE`, os
-        do print `cli-013` — mas o resultado do dashboard NAO muda: com 0 ponto
-        acumulado, `nivelAtual` devolve o `BRONZE` de qualquer jeito, porque e o
-        unico nivel de limiar 0. A lista completa entra porque `nivelAtual` foi
-        feita para receber TODOS os niveis — passar so o piso funcionava por
-        acidente enquanto havia so um.
-      */
+      cuponsAtivos: DEMO_CUPONS_CLIENTE.map((c) => ({ ...c })),
       nivel: nivelAtual(DEMO_NIVEIS_CLUBE, pontosAcumulados(DEMO_PONTOS_CLUBE)),
     },
     source: 'demo',
-    reason: PENDING_REASON,
+    reason: temBanco() ? SEM_LOGIN : DEMO,
   };
 }
