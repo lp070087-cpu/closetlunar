@@ -74,6 +74,7 @@ import {
   DEMO_LOYALTY_TIERS,
 } from './demo';
 import { sortTiers } from './metrics';
+import { lerModulo, gravarModulo } from '@/lib/data/modulo';
 import type { LoyaltyMovement, LoyaltyReward, LoyaltyRules, LoyaltyTier } from './types';
 
 export interface Dataset<T> {
@@ -105,13 +106,13 @@ const PENDING_REASON =
  */
 export async function getLoyaltyRules(options?: { signal?: AbortSignal }): Promise<Dataset<LoyaltyRules>> {
   if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  return { data: DEMO_LOYALTY_RULES, source: 'demo' };
+  return lerModulo('fidelidade:regras', DEMO_LOYALTY_RULES, DEMO_LOYALTY_RULES);
 }
 
 /** As recompensas resgataveis. */
 export async function listRewards(options?: { signal?: AbortSignal }): Promise<Dataset<LoyaltyReward[]>> {
   if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  return { data: DEMO_LOYALTY_REWARDS, source: 'demo' };
+  return lerModulo('fidelidade:recompensas', DEMO_LOYALTY_REWARDS, DEMO_LOYALTY_REWARDS);
 }
 
 /**
@@ -123,7 +124,8 @@ export async function listRewards(options?: { signal?: AbortSignal }): Promise<D
  */
 export async function listTiers(options?: { signal?: AbortSignal }): Promise<Dataset<LoyaltyTier[]>> {
   if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  return { data: sortTiers(DEMO_LOYALTY_TIERS), source: 'demo' };
+  const r = await lerModulo('fidelidade:niveis', DEMO_LOYALTY_TIERS, DEMO_LOYALTY_TIERS);
+  return { data: sortTiers(r.data), source: r.source };
 }
 
 /**
@@ -136,7 +138,8 @@ export async function listTiers(options?: { signal?: AbortSignal }): Promise<Dat
  */
 export async function listMovements(options?: { signal?: AbortSignal }): Promise<Dataset<LoyaltyMovement[]>> {
   if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  return { data: [...DEMO_LOYALTY_MOVEMENTS].slice(0, 50), source: 'demo' };
+  const r = await lerModulo<LoyaltyMovement[]>('fidelidade:movimentos', [...DEMO_LOYALTY_MOVEMENTS], []);
+  return { data: r.data.slice(0, 50), source: r.source };
 }
 
 /**
@@ -169,7 +172,7 @@ export async function loadLoyalty(options?: { signal?: AbortSignal }): Promise<
       tiers: tiers.data,
       movements: movements.data,
     },
-    source: 'demo',
+    source: rules.source,
   };
 }
 
@@ -185,7 +188,7 @@ export async function loadLoyalty(options?: { signal?: AbortSignal }): Promise<
  * explicacao.
  */
 export async function saveRules(rules: LoyaltyRules): Promise<WriteResult<LoyaltyRules>> {
-  return { data: rules, persisted: false, reason: PENDING_REASON };
+  return { data: rules, ...(await gravarModulo('fidelidade:regras', rules)) };
 }
 
 /**
@@ -195,7 +198,7 @@ export async function saveRules(rules: LoyaltyRules): Promise<WriteResult<Loyalt
  * fique igual a que viria do banco.
  */
 export async function saveRewards(rewards: LoyaltyReward[]): Promise<WriteResult<LoyaltyReward[]>> {
-  return { data: rewards, persisted: false, reason: PENDING_REASON };
+  return { data: rewards, ...(await gravarModulo('fidelidade:recompensas', rewards)) };
 }
 
 /**
@@ -213,7 +216,8 @@ export async function saveRewards(rewards: LoyaltyReward[]): Promise<WriteResult
  * tem, e a correcao e a mesma — a operacao tem que ser atomica.
  */
 export async function saveTiers(tiers: LoyaltyTier[]): Promise<WriteResult<LoyaltyTier[]>> {
-  return { data: sortTiers(tiers), persisted: false, reason: PENDING_REASON };
+  const ord = sortTiers(tiers);
+  return { data: ord, ...(await gravarModulo('fidelidade:niveis', ord)) };
 }
 
 /**
@@ -226,7 +230,8 @@ export async function saveTiers(tiers: LoyaltyTier[]): Promise<WriteResult<Loyal
  * separadas deixa visivel que adicionar nao e salvar.
  */
 export async function addReward(reward: LoyaltyReward): Promise<WriteResult<LoyaltyReward>> {
-  return { data: reward, persisted: false, reason: PENDING_REASON };
+  const atual = (await listRewards()).data;
+  return { data: reward, ...(await gravarModulo('fidelidade:recompensas', [...atual, reward])) };
 }
 
 export { PENDING_REASON };

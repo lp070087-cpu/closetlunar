@@ -26,73 +26,34 @@
 
 import { DEMO_TICKETS, DEMO_WHATSAPP_CONFIG } from './demo';
 import type { Ticket, WhatsAppConfig } from './types';
+import { lerModulo, gravarModulo } from '@/lib/data/modulo';
 
-const PENDING_REASON =
-  'Persistência ainda não conectada: o banco (Neon/PostgreSQL) entra na fase de integração.';
+const PENDING_REASON = 'Não foi possível salvar agora. Tente novamente.';
 
-/** O resultado de uma leitura. */
 export interface WhatsAppReadResult<T> {
   data: T;
-  source: 'demo';
+  source: 'demo' | 'database';
   reason?: string;
 }
 
-/** O resultado de uma escrita — o mesmo envelope dos outros módulos. */
 export interface WhatsAppWriteResult {
   data: WhatsAppConfig;
-  /** Sempre `false` enquanto o Neon não está ligado. */
-  persisted: false;
-  reason: string;
+  persisted: boolean;
+  reason?: string;
 }
 
-/**
- * OS ATENDIMENTOS — a leitura da aba `Atendimentos`.
- *
- * Devolve as linhas JÁ ORDENADAS por data (mais recente primeiro), como o banco
- * as devolverá. A tela filtra por status, mas não reordena — a ordem é da leitura.
- *
- * Copia o array (`[...]`) para a tela não mutar a demonstração global.
- */
 export async function listTickets(): Promise<WhatsAppReadResult<Ticket[]>> {
-  return {
-    data: [...DEMO_TICKETS],
-    source: 'demo',
-    reason: PENDING_REASON,
-  };
+  return lerModulo<Ticket[]>('atendimento:tickets', [...DEMO_TICKETS], []);
 }
 
-/**
- * A CONFIGURAÇÃO — a leitura da aba `Configurações`.
- *
- * Devolve uma cópia PROFUNDA dos `templates`: o admin edita os textos, e cada
- * edição mutaria o objeto da demonstração se ele fosse devolvido por referência —
- * o texto voltaria editado na próxima abertura da tela, mesmo sem salvar.
- */
 export async function getConfig(): Promise<WhatsAppReadResult<WhatsAppConfig>> {
-  return {
-    data: {
-      ...DEMO_WHATSAPP_CONFIG,
-      templates: DEMO_WHATSAPP_CONFIG.templates.map((template) => ({ ...template })),
-    },
-    source: 'demo',
-    reason: PENDING_REASON,
-  };
+  const padrao = { ...DEMO_WHATSAPP_CONFIG, templates: DEMO_WHATSAPP_CONFIG.templates.map((t) => ({ ...t })) };
+  return lerModulo<WhatsAppConfig>('whatsapp:config', padrao, padrao);
 }
 
-/**
- * SALVAR A CONFIGURAÇÃO — a escrita da aba.
- *
- * NÃO grava nada: o banco não está ligado. Devolve `persisted: false` e o motivo,
- * e a tela mostra o aviso em vez de fingir um "salvo com sucesso". O objeto
- * devolvido é o que o admin editou, para a tela poder refletir o que foi enviado
- * sem uma segunda leitura — mas marcado como NÃO persistido.
- */
 export async function saveConfig(config: WhatsAppConfig): Promise<WhatsAppWriteResult> {
-  return {
-    data: config,
-    persisted: false,
-    reason: PENDING_REASON,
-  };
+  const r = await gravarModulo('whatsapp:config', config);
+  return { data: config, persisted: r.persisted, reason: r.persisted ? undefined : r.reason ?? PENDING_REASON };
 }
 
 export { PENDING_REASON };

@@ -30,6 +30,7 @@
  */
 
 import { DEMO_PRODUCTS_PRODUTOS } from '@/lib/produtos/demo';
+import { ajustarEstoqueAcao, linhasEstoqueAcao, movimentosAcao } from './acoes';
 import type { Product } from '@/lib/produtos/types';
 import {
   DEMO_RESPONSIBLE,
@@ -90,6 +91,8 @@ export async function listStockRows(options?: {
   signal?: AbortSignal;
 }): Promise<Dataset<StockRow[]>> {
   if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
+  const reais = await linhasEstoqueAcao();
+  if (reais) return { data: reais, source: 'database' };
 
   const overrides = overrideMap();
   const rows: StockRow[] = DEMO_PRODUCTS_PRODUTOS.map((product) =>
@@ -113,7 +116,7 @@ export async function listStockStats(options?: {
 }): Promise<Dataset<StockStats>> {
   if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
   const [rows, movements] = await Promise.all([listStockRows(), listStockMovements()]);
-  return { data: summarizeStock(rows.data, movements.data), source: 'demo' };
+  return { data: summarizeStock(rows.data, movements.data), source: rows.source };
 }
 
 /**
@@ -130,6 +133,8 @@ export async function listStockMovements(options?: {
   if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
   // Mais recentes primeiro, igual ao print (as duas linhas sao identicas, mas
   // com o banco a ordem vai importar).
+  const reais = await movimentosAcao();
+  if (reais) return { data: reais, source: 'database' };
   const data = [...DEMO_STOCK_MOVEMENTS].sort((a, b) => b.at.localeCompare(a.at));
   return { data, source: 'demo' };
 }
@@ -164,8 +169,7 @@ export interface WriteResult<T> {
   reason?: string;
 }
 
-const PENDING_REASON =
-  'Persistência ainda não conectada: o banco (Neon/PostgreSQL) entra na fase de integração.';
+const PENDING_REASON = 'Não foi possível salvar o ajuste agora.';
 
 /**
  * O produto com a quantidade ja ajustada, e o lancamento correspondente.
@@ -189,11 +193,9 @@ export async function saveStockAdjustment(
     responsible: string;
   },
 ): Promise<WriteResult<StockMovement>> {
-  return {
-    data: buildMovement(adjustment, context),
-    persisted: false,
-    reason: PENDING_REASON,
-  };
+  const r = await ajustarEstoqueAcao(adjustment, { productName: context.productName, colorName: context.colorName });
+  if (r.ok && r.movimento) return { data: r.movimento, persisted: true };
+  return { data: buildMovement(adjustment, context), persisted: false, reason: r.reason ?? PENDING_REASON };
 }
 
 export { PENDING_REASON };

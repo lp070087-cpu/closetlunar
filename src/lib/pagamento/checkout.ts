@@ -138,7 +138,7 @@ export async function criarPedidoECobranca(e: EntradaCheckout, req: Request): Pr
           couponCode: cupomAplicado,
           subtotal,
           total,
-          shippingKind: 'transportadora',
+          shippingKind: frete.id.startsWith('propria:') ? 'propria' : 'transportadora',
           carrier: frete.empresa,
           shipmentMethod: `${frete.empresa} ${frete.nome} (${frete.prazoMin}-${frete.prazoMax} dias úteis)`.trim(),
           addressZip: so(e.endereco.cep),

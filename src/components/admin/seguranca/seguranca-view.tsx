@@ -57,7 +57,7 @@ export function SegurancaView() {
 
   async function executarBackup() {
     const resultado = await requestBackup();
-    setAviso(resultado.reason);
+    setAviso(resultado.reason ?? null);
   }
 
   return (

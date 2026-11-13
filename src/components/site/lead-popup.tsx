@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { registrarLeadAcao } from '@/lib/data/colecao-acoes';
 import { Sparkles, X } from 'lucide-react';
 
 /**
@@ -114,9 +115,15 @@ export function LeadPopup() {
 
         <form
           className="space-y-3 p-6"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
-            setAviso('O cadastro entra na fase de integração — o cupom ainda não é enviado por aqui.');
+            const f = new FormData(e.currentTarget);
+            const r = await registrarLeadAcao({
+              nome: String(f.get('nome') ?? ''),
+              whatsapp: String(f.get('whatsapp') ?? ''),
+              email: String(f.get('email') ?? ''),
+            }).catch(() => ({ ok: false, reason: 'Falha de conexão. Tente de novo.' }));
+            setAviso(r.ok ? 'Pronto! Use o cupom PRIMEIRA10 na finalização da compra.' : r.reason ?? 'Não foi possível cadastrar.');
           }}
         >
           <input

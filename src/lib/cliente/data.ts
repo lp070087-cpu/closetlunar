@@ -51,6 +51,7 @@ import type {
   EnderecoCliente,
   FavoritoCliente,
   MedidaHistorico,
+  MovimentoPontos,
   PedidoCliente,
   PerfilMedidas,
   ResumoCliente,
@@ -170,7 +171,25 @@ export async function listPedidos(): Promise<Dataset<PedidoCliente[]>> {
 /* ------------------------------ favoritos ------------------------------ */
 
 export async function listFavoritos(): Promise<Dataset<FavoritoCliente[]>> {
-  return { data: DEMO_FAVORITOS_CLIENTE.map((f) => ({ ...f })), source: temBanco() ? 'database' : 'demo' };
+  const u = await contaReal();
+  if (!u) return { data: temBanco() ? [] : DEMO_FAVORITOS_CLIENTE.map((f) => ({ ...f })), source: 'demo' };
+  const ids = await lerJson<string[]>(chave(u.id, 'favoritos'), []);
+  if (!ids.length) return { data: [], source: 'database' };
+  const prods = await db()!.product.findMany({ where: { id: { in: ids }, status: 'active' }, include: { images: { orderBy: { sortOrder: 'asc' }, take: 1 } } });
+  const ordem = new Map(ids.map((id, i) => [id, i]));
+  return {
+    data: prods
+      .sort((a, b) => (ordem.get(a.id) ?? 0) - (ordem.get(b.id) ?? 0))
+      .map((p) => ({
+        id: p.id,
+        slug: p.slug,
+        nome: p.name,
+        preco: Number(p.promoPrice ?? p.price),
+        precoDe: p.promoPrice ? Number(p.price) : null,
+        imagem: p.images[0]?.url ?? null,
+      })),
+    source: 'database',
+  };
 }
 
 /* ------------------------------ enderecos ------------------------------ */
@@ -307,9 +326,15 @@ export async function salvarPerfilMedidas(perfil?: Omit<PerfilMedidas, 'updated_
 
 /* ------------------------------ clube / pontos ------------------------------ */
 
+async function extratoReal(): Promise<MovimentoPontos[]> {
+  const u = await contaReal();
+  if (!u) return [];
+  return lerJson<MovimentoPontos[]>(chave(u.id, 'pontos'), []);
+}
+
 export async function getClube(): Promise<Dataset<ResumoClube>> {
   const real = temBanco();
-  const extrato = real ? [] : DEMO_PONTOS_CLUBE;
+  const extrato = real ? await extratoReal() : DEMO_PONTOS_CLUBE;
   const acumulado = pontosAcumulados(extrato);
   const { nivel, proximoNivel, progressoPct, faltamProximo } = progressoClube(DEMO_NIVEIS_CLUBE, acumulado);
   return {
@@ -336,8 +361,14 @@ export async function resgatarRecompensa(): Promise<ResultadoEscrita> {
 /* -------------------------------- afiliada -------------------------------- */
 
 export async function getAfiliada(): Promise<Dataset<ContaAfiliada>> {
+  const u = await contaReal();
+  let perfil: ContaAfiliada['perfil'] = null;
+  if (u) {
+    const lista = await lerJson<NonNullable<ContaAfiliada['perfil']>[]>('modulo:afiliadas:lista', []);
+    perfil = lista.find((a) => a.email?.toLowerCase() === u.email.toLowerCase()) ?? null;
+  }
   return {
-    data: { perfil: null, vendas: [], resumo: resumoAfiliada(0, []) },
+    data: { perfil, vendas: [], resumo: resumoAfiliada(0, []) },
     source: temBanco() ? 'database' : 'demo',
   };
 }
@@ -375,11 +406,11 @@ export async function getResumo(): Promise<Dataset<ResumoCliente>> {
       data: {
         pedidos: pedidos.length,
         cashback: 0,
-        pontos: 0,
-        favoritos: 0,
+        pontos: saldoPontosDoExtrato(await extratoReal()),
+        favoritos: (await lerJson<string[]>(chave(u.id, 'favoritos'), [])).length,
         ultimoPedido: pedidos[0] ?? null,
         cuponsAtivos: (await cuponsAtivosLoja()).filter((c) => !c.esgotado),
-        nivel: nivelAtual(DEMO_NIVEIS_CLUBE, 0),
+        nivel: nivelAtual(DEMO_NIVEIS_CLUBE, pontosAcumulados(await extratoReal())),
       },
       source: 'database',
     };
@@ -398,4 +429,25 @@ export async function getResumo(): Promise<Dataset<ResumoCliente>> {
     source: 'demo',
     reason: temBanco() ? SEM_LOGIN : DEMO,
   };
+}
+
+/* ------------------------------ favoritos reais ------------------------------ */
+
+/** Ids dos produtos favoritos da conta logada (`null` = sem login). */
+export async function idsFavoritos(): Promise<string[] | null> {
+  const u = await contaReal();
+  if (!u) return null;
+  return lerJson<string[]>(chave(u.id, 'favoritos'), []);
+}
+
+/** Liga/desliga um favorito. `null` = precisa entrar na conta. */
+export async function alternarFavorito(produtoId: string): Promise<{ favorito: boolean } | null> {
+  const u = await contaReal();
+  if (!u) return null;
+  const k = chave(u.id, 'favoritos');
+  const atual = await lerJson<string[]>(k, []);
+  const tem = atual.includes(produtoId);
+  const novo = tem ? atual.filter((x) => x !== produtoId) : [produtoId, ...atual].slice(0, 200);
+  await gravarJson(k, novo);
+  return { favorito: !tem };
 }

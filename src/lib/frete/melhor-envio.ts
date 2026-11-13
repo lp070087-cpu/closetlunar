@@ -12,6 +12,8 @@
 
 import { db } from '@/lib/db';
 import { configFrete, configMelhorEnvio } from '@/lib/integracoes/config';
+import { DEMO_DELIVERY_ZONES } from '@/lib/configuracoes/demo';
+import type { DeliveryZone } from '@/lib/configuracoes/types';
 
 export interface OpcaoFrete {
   id: string;
@@ -37,7 +39,62 @@ export function baseMelhorEnvio(sandbox: boolean): string {
 
 export const USER_AGENT = 'Closet Lunna (loja online)';
 
+const semAcento = (s: string) =>
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+
+/** Entrega propria (zonas por bairro do painel) para o CEP, se houver. */
+async function entregaPropria(cep: string, subtotal: number, regras: { freteGratisAcima: number; diasManuseio: number }): Promise<OpcaoFrete | null> {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 4000);
+    const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`, { signal: ctrl.signal, cache: 'no-store' });
+    clearTimeout(t);
+    const j = (await r.json()) as { erro?: boolean; localidade?: string; bairro?: string };
+    if (j.erro || !j.localidade || !j.bairro) return null;
+    const linha = await db()?.setting.findUnique({ where: { key: 'modulo:configuracoes:zonas' } });
+    const zonas = (linha?.value as DeliveryZone[] | undefined) ?? DEMO_DELIVERY_ZONES;
+    const z = zonas.find(
+      (x) => x.isActive && semAcento(x.city) === semAcento(j.localidade!) && semAcento(x.neighborhood) === semAcento(j.bairro!),
+    );
+    if (!z) return null;
+    const gratis = regras.freteGratisAcima > 0 && subtotal >= regras.freteGratisAcima;
+    return {
+      id: `propria:${z.id}`,
+      nome: z.etaLabel || 'Entrega local',
+      empresa: 'Entrega Closet Lunar',
+      preco: gratis ? 0 : z.price,
+      precoOriginal: z.price,
+      prazoMin: Math.max(0, z.daysMin),
+      prazoMax: Math.max(z.daysMin, z.daysMax),
+      gratis,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function cotarFrete(entrada: {
+  cep: string;
+  itens: { produtoId: string; quantidade: number }[];
+}): Promise<ResultadoFrete> {
+  const r = await cotarMelhorEnvio(entrada);
+  const cep = entrada.cep.replace(/\D/g, '');
+  if (cep.length !== 8) return r;
+  const regras = await configFrete();
+  const cliente = db();
+  const ids = [...new Set(entrada.itens.map((i) => i.produtoId))];
+  const produtos = cliente
+    ? await cliente.product.findMany({ where: { id: { in: ids } }, select: { id: true, price: true, promoPrice: true } })
+    : [];
+  const preco = new Map(produtos.map((p) => [p.id, Number(p.promoPrice ?? p.price)]));
+  const subtotal = entrada.itens.reduce((s, i) => s + (preco.get(i.produtoId) ?? 0) * i.quantidade, 0);
+  const propria = await entregaPropria(cep, subtotal, regras);
+  if (!propria) return r;
+  const deMelhorEnvio = r.ok ? r.opcoes.filter((o) => o.id !== 'fixo') : [];
+  return { ok: true, opcoes: [propria, ...deMelhorEnvio], freteGratisAcima: regras.freteGratisAcima };
+}
+
+async function cotarMelhorEnvio(entrada: {
   cep: string;
   itens: { produtoId: string; quantidade: number }[];
 }): Promise<ResultadoFrete> {

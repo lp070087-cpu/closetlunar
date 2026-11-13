@@ -18,6 +18,7 @@ import {
   saveMelhorEnvio,
   savePayments,
   saveZonePrices,
+  saveZones,
 } from '@/lib/configuracoes/data';
 import type {
   ConfigTab,
@@ -102,13 +103,21 @@ export function ConfiguracoesView() {
     setDraft(null);
   }
 
+  function persistir<T extends DeliveryZone[] | null>(lista: T): T {
+    if (lista) void saveZones(lista).then((r) => setAviso(r.persisted ? 'Zonas de entrega salvas.' : r.reason ?? 'Não foi possível salvar.'));
+    return lista;
+  }
+
   function salvarZona(d: ZoneDraft) {
     const id = `novo-${proximoId}`;
     setProximoId((n) => n + 1);
     const zona = zoneFromDraft(d, id);
-    setZones((atual) => (atual ? upsertZone(atual, zona) : atual));
+    setZones((atual) => {
+      const nova = atual ? upsertZone(atual, zona) : atual;
+      if (nova) void saveZones(nova).then((r) => setAviso(r.persisted ? 'Zona de entrega salva.' : r.reason ?? 'Não foi possível salvar.'));
+      return nova;
+    });
     fecharForm();
-    setAviso('Alteração aplicada em memória. O banco ainda não está conectado.');
   }
 
   function salvarPrecos(precos: { id: string; price: number }[]) {
@@ -176,13 +185,13 @@ export function ConfiguracoesView() {
           onAddNeighborhood={(city, state) => abrirCriacao(city, state)}
           onEdit={abrirEdicao}
           onToggleActive={(zona) =>
-            setZones((atual) => (atual ? toggleZoneActive(atual, zona.id) : atual))
+            setZones((atual) => persistir(atual ? toggleZoneActive(atual, zona.id) : atual))
           }
           onRemoveZone={(zona) =>
-            setZones((atual) => (atual ? removeZone(atual, zona.id) : atual))
+            setZones((atual) => persistir(atual ? removeZone(atual, zona.id) : atual))
           }
           onRemoveCity={(state, city) =>
-            setZones((atual) => (atual ? removeCity(atual, state, city) : atual))
+            setZones((atual) => persistir(atual ? removeCity(atual, state, city) : atual))
           }
         />
       ) : aba === 'melhor_envio' || aba === 'integracao' ? (

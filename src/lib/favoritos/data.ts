@@ -28,6 +28,7 @@
 
 import { DEMO_FAVORITES } from './demo';
 import type { FavoriteRow } from './types';
+import { favoritosAgregadosAcao } from '@/lib/data/registros-acoes';
 
 /**
  * A mensagem que a tela mostra quando o banco ainda não está ligado.
@@ -42,7 +43,7 @@ const PENDING_REASON =
 /** O que uma leitura devolve: os dados e de onde eles vieram. */
 export interface FavoritesResult {
   data: FavoriteRow[];
-  source: 'demo';
+  source: 'demo' | 'database';
   /** Presente só enquanto a persistência não está ligada. */
   reason?: string;
 }
@@ -60,6 +61,8 @@ export interface FavoritesResult {
  * chamadas.
  */
 export async function listFavorites(): Promise<FavoritesResult> {
+  const reais = await favoritosAgregadosAcao();
+  if (reais) return { data: reais, source: 'database' };
   return {
     data: [...DEMO_FAVORITES],
     source: 'demo',

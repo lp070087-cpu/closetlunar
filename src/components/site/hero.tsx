@@ -180,7 +180,7 @@ function Slide({
           playsInline
           preload={prioridade ? 'auto' : 'metadata'}
           aria-hidden
-          className="absolute inset-0 size-full object-cover object-center"
+          className="absolute inset-0 size-full object-cover object-center lg:object-left"
         />
       ) : (
         <picture>
@@ -191,7 +191,7 @@ function Slide({
             alt=""
             fetchPriority={prioridade ? 'high' : 'auto'}
             loading={prioridade ? 'eager' : 'lazy'}
-            className="absolute inset-0 size-full object-cover object-center"
+            className="absolute inset-0 size-full object-cover object-center lg:object-left"
           />
         </picture>
       )}
@@ -210,7 +210,7 @@ function Slide({
           <div className="text-[10px] uppercase tracking-[0.32em] text-white/85 lg:text-[11px] lg:text-foreground/70">
             {slide.eyebrow || 'Closet Lunar'}
           </div>
-          <Titulo className="font-serif text-4xl leading-[1.05] tracking-tight text-white drop-shadow-sm sm:text-5xl lg:text-6xl lg:text-foreground xl:text-7xl">
+          <Titulo className="font-serif text-4xl leading-[1.05] tracking-tight text-white drop-shadow-sm sm:text-5xl lg:text-5xl lg:text-foreground xl:text-6xl 2xl:text-7xl">
             {slide.title}
           </Titulo>
           {slide.subtitle && (

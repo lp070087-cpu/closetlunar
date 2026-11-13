@@ -7,35 +7,19 @@
 
 import { DEMO_SEO } from './demo';
 import type { SeoConfig } from './types';
+import { lerModulo, gravarModulo } from '@/lib/data/modulo';
 
-const PENDING_REASON =
-  'Persistência ainda não conectada: o banco (Neon/PostgreSQL) entra na fase de integração.';
+const PENDING_REASON = 'Não foi possível salvar agora. Tente novamente.';
 
-/**
- * A configuração de SEO da loja.
- *
- * FUTURO (Neon): `settings WHERE key = 'site'` — o original guarda TUDO num único
- * registro `site`, com o SEO dentro do mesmo objeto. Devolve cópia: a tela edita
- * campo a campo e não pode escrever na demonstração do módulo.
- */
-export async function getSeoConfig(): Promise<{
-  data: SeoConfig;
-  source: 'demo';
-  reason: string;
-}> {
-  return { data: { ...DEMO_SEO }, source: 'demo', reason: PENDING_REASON };
+export async function getSeoConfig(): Promise<{ data: SeoConfig; source: 'demo' | 'database'; reason?: string }> {
+  return lerModulo<SeoConfig>('seo:config', { ...DEMO_SEO }, { ...DEMO_SEO });
 }
 
-/**
- * A gravação. FUTURO (Neon): upsert do registro `site` com os campos de SEO.
- *
- * Devolve `persisted: false` como todo o resto do painel — a tela mostra o motivo
- * em vez de fingir um "Configurações de SEO salvas!".
- */
 export async function saveSeoConfig(
   config: SeoConfig,
-): Promise<{ data: SeoConfig; persisted: false; reason: string }> {
-  return { data: { ...config }, persisted: false, reason: PENDING_REASON };
+): Promise<{ data: SeoConfig; persisted: boolean; reason?: string }> {
+  const r = await gravarModulo('seo:config', config);
+  return { data: { ...config }, persisted: r.persisted, reason: r.persisted ? undefined : r.reason ?? PENDING_REASON };
 }
 
 export { PENDING_REASON };

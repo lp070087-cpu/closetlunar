@@ -61,7 +61,7 @@ export function SeoView() {
     setSalvando(true);
     saveSeoConfig(config).then((res) => {
       setSalvando(false);
-      setAviso(res.reason);
+      setAviso(res.persisted ? 'Configurações de SEO salvas.' : (res.reason ?? null));
     });
   }
 

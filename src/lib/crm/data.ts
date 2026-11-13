@@ -55,7 +55,8 @@ import {
   DEMO_TRYON_EVENT_COUNT,
   DEMO_WISHLIST_COUNT,
 } from './demo';
-import { buildLeads, buildSegments, groupCustomers, type CustomerOrderRecord } from './metrics';
+import { buildLeads, buildSegments, groupCustomers, type CustomerOrderRecord, type FormLeadRecord } from './metrics';
+import { lerModulo } from '@/lib/data/modulo';
 import type { CrmDataset } from './types';
 
 export interface Dataset<T> {
@@ -118,7 +119,10 @@ export async function listCrmDataset(options?: {
   const records = ordersResult.data.map(toRecord);
 
   const customers = groupCustomers(records);
-  const leads = buildLeads(DEMO_ABANDONED_CARTS, DEMO_FORM_LEADS);
+  const real = ordersResult.source === 'database';
+  const formLeads = real ? (await lerModulo<FormLeadRecord[]>('crm:leads', DEMO_FORM_LEADS, [])).data : DEMO_FORM_LEADS;
+  const carrinhos = real ? [] : DEMO_ABANDONED_CARTS;
+  const leads = buildLeads(carrinhos, formLeads);
 
   /**
    * Quantos carrinhos TEM E-MAIL.
@@ -127,7 +131,7 @@ export async function listCrmDataset(options?: {
    * regra, aplicada sobre os carrinhos de demonstracao — e e ela que explica a
    * assimetria 3 x 1 entre o segmento e a lista de leads. Ver `demo.ts`.
    */
-  const abandonedCartsWithEmail = DEMO_ABANDONED_CARTS.filter((cart) =>
+  const abandonedCartsWithEmail = carrinhos.filter((cart) =>
     Boolean(cart.email),
   ).length;
 
@@ -137,16 +141,16 @@ export async function listCrmDataset(options?: {
       // O SEGMENTO conta CARRINHOS (todos), nao carrinhos com e-mail. E o que o
       // original faz, e e o que faz os dois numeros de adm-010 e adm-011
       // conviverem: 3 no card, 1 na lista.
-      abandonedCarts: DEMO_ABANDONED_CARTS.length,
-      wishlist: DEMO_WISHLIST_COUNT,
-      tryOn: DEMO_TRYON_EVENT_COUNT,
+      abandonedCarts: carrinhos.length,
+      wishlist: real ? 0 : DEMO_WISHLIST_COUNT,
+      tryOn: real ? 0 : DEMO_TRYON_EVENT_COUNT,
     },
     now,
   );
 
   return {
     data: { customers, leads, segments, abandonedCartsWithEmail },
-    source: 'demo',
+    source: ordersResult.source,
   };
 }
 

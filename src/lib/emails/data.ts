@@ -23,71 +23,43 @@
 
 import { DEMO_EMAIL_IDENTITY, DEMO_EMAIL_LOGS, DEMO_EMAIL_TEMPLATES } from './demo';
 import type { EmailIdentity, EmailLog, EmailTemplate } from './types';
+import { lerModulo, gravarModulo, salvarItem } from '@/lib/data/modulo';
+import { emailsEnviadosAcao } from '@/lib/data/registros-acoes';
 
-const PENDING_REASON =
-  'Persistência ainda não conectada: o banco (Neon/PostgreSQL) entra na fase de integração.';
+const PENDING_REASON = 'Não foi possível salvar agora. Tente novamente.';
 
-/** O resultado de uma leitura. */
 export interface EmailsReadResult<T> {
   data: T;
-  source: 'demo';
+  source: 'demo' | 'database';
   reason?: string;
 }
 
-/** O resultado de uma escrita — o mesmo envelope dos outros módulos. */
 export interface EmailsWriteResult {
   data: EmailTemplate;
-  /** Sempre `false` enquanto o Neon não está ligado. */
-  persisted: false;
-  reason: string;
+  persisted: boolean;
+  reason?: string;
 }
 
-/**
- * OS SEIS MODELOS + A IDENTIDADE — a leitura da tela.
- *
- * Devolve cópias: o admin edita um modelo na tela, e a lista da demonstração não
- * pode ser mutada por essa edição (o texto voltaria editado na próxima abertura,
- * mesmo sem salvar). São dois arrays novos e um objeto de identidade novo.
- */
 export async function listTemplates(): Promise<EmailsReadResult<EmailTemplate[]>> {
-  return {
-    data: DEMO_EMAIL_TEMPLATES.map((template) => ({ ...template })),
-    source: 'demo',
-    reason: PENDING_REASON,
-  };
+  const padrao = DEMO_EMAIL_TEMPLATES.map((t) => ({ ...t }));
+  return lerModulo<EmailTemplate[]>('emails:modelos', padrao, padrao);
 }
 
-/** A IDENTIDADE VISUAL — o painel escuro. Uma leitura separada. */
 export async function getIdentity(): Promise<EmailsReadResult<EmailIdentity>> {
-  return {
-    data: { ...DEMO_EMAIL_IDENTITY },
-    source: 'demo',
-    reason: PENDING_REASON,
-  };
+  return lerModulo<EmailIdentity>('emails:identidade', { ...DEMO_EMAIL_IDENTITY }, { ...DEMO_EMAIL_IDENTITY });
 }
 
-/** OS ENVIOS RECENTES — VAZIOS, como o print. */
 export async function listEmailLogs(): Promise<EmailsReadResult<EmailLog[]>> {
-  return {
-    data: DEMO_EMAIL_LOGS.map((log) => ({ ...log })),
-    source: 'demo',
-    reason: PENDING_REASON,
-  };
+  const reais = await emailsEnviadosAcao();
+  if (reais) return { data: reais, source: 'database' };
+  return { data: DEMO_EMAIL_LOGS.map((l) => ({ ...l })), source: 'demo' };
 }
 
-/**
- * SALVAR UM MODELO — a escrita do editor.
- *
- * NÃO grava nada: o banco não está ligado. Devolve `persisted: false` e o motivo,
- * e a tela mostra o aviso em vez de fingir um "template atualizado". O objeto
- * devolvido é o que o admin editou, para a tela refletir o que foi enviado.
- */
 export async function saveTemplate(template: EmailTemplate): Promise<EmailsWriteResult> {
-  return {
-    data: { ...template },
-    persisted: false,
-    reason: PENDING_REASON,
-  };
+  const atual = (await listTemplates()).data;
+  const r = await salvarItem('emails:modelos', atual, template);
+  void gravarModulo;
+  return { data: { ...template }, persisted: r.persisted, reason: r.persisted ? undefined : r.reason ?? PENDING_REASON };
 }
 
 export { PENDING_REASON };

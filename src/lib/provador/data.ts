@@ -20,6 +20,7 @@ import { listCategories as listProdutoCategories, listProducts } from '@/lib/pro
 import type { Dataset } from '@/lib/produtos/data';
 import { DEMO_AI_SETTINGS, DEMO_AVATAR, DEMO_PIECE, DEMO_SUGGESTIONS } from './demo';
 import { selectorProducts } from './metrics';
+import { lerModulo, gravarModulo } from '@/lib/data/modulo';
 import type { AiSettings, AvatarSettings, ManualSuggestion, PieceConfig, PieceDefaults } from './types';
 
 /**
@@ -35,8 +36,13 @@ import type { AiSettings, AvatarSettings, ManualSuggestion, PieceConfig, PieceDe
  */
 export interface WriteResult<T> {
   data: T;
-  persisted: false;
-  reason: string;
+  persisted: boolean;
+  reason?: string;
+}
+
+async function gravar<T>(chave: string, valor: T): Promise<WriteResult<T>> {
+  const r = await gravarModulo(chave, valor);
+  return { data: valor, persisted: r.persisted, reason: r.persisted ? undefined : r.reason ?? REASON };
 }
 
 const REASON =
@@ -61,7 +67,7 @@ export async function listSelectorData(): Promise<{ products: Product[]; categor
 
 /** As imagens e as medidas do avatar. Hoje do `demo`. */
 export async function getAvatar(): Promise<Dataset<AvatarSettings>> {
-  return { data: DEMO_AVATAR, source: 'demo' };
+  return lerModulo('provador:avatar', DEMO_AVATAR, DEMO_AVATAR);
 }
 
 /**
@@ -82,7 +88,7 @@ export async function getAvatar(): Promise<Dataset<AvatarSettings>> {
  * o print mostra (`Nenhuma alteração pendente`).
  */
 export async function saveAvatar(_avatar: AvatarSettings): Promise<WriteResult<AvatarSettings>> {
-  return { data: _avatar, persisted: false, reason: REASON };
+  return gravar('provador:avatar', _avatar);
 }
 
 /* ============================== Provador ============================== */
@@ -95,32 +101,34 @@ export async function saveAvatar(_avatar: AvatarSettings): Promise<WriteResult<A
  * em `types.ts` sobre o defeito que essa exclusao existe para impedir.
  */
 export async function getPieceDefaults(): Promise<Dataset<PieceDefaults>> {
-  return { data: DEMO_PIECE, source: 'demo' };
+  return lerModulo('provador:pecas', DEMO_PIECE, DEMO_PIECE);
 }
 
 export async function savePiece(piece: PieceConfig): Promise<WriteResult<PieceConfig>> {
-  return { data: piece, persisted: false, reason: REASON };
+  const atual = (await getPieceDefaults()).data;
+  const r = await gravarModulo('provador:pecas', { ...atual, ...piece });
+  return { data: piece, persisted: r.persisted, reason: r.persisted ? undefined : r.reason ?? REASON };
 }
 
 /* ============================= IA de Looks ============================= */
 
 /** A tabela de sugestoes manuais — VAZIA, como o print (adm-047). */
 export async function listSuggestions(): Promise<Dataset<ManualSuggestion[]>> {
-  return { data: DEMO_SUGGESTIONS, source: 'demo' };
+  return lerModulo('provador:sugestoes', DEMO_SUGGESTIONS, []);
 }
 
 export async function saveSuggestions(
   rows: ManualSuggestion[],
 ): Promise<WriteResult<ManualSuggestion[]>> {
-  return { data: rows, persisted: false, reason: REASON };
+  return gravar('provador:sugestoes', rows);
 }
 
 export async function getAiSettings(): Promise<Dataset<AiSettings>> {
-  return { data: DEMO_AI_SETTINGS, source: 'demo' };
+  return lerModulo('provador:ia', DEMO_AI_SETTINGS, DEMO_AI_SETTINGS);
 }
 
 export async function saveAiSettings(settings: AiSettings): Promise<WriteResult<AiSettings>> {
-  return { data: settings, persisted: false, reason: REASON };
+  return gravar('provador:ia', settings);
 }
 
 /* ============================== Insights ============================== */

@@ -35,6 +35,8 @@ import type {
   ProductRuleRow,
 } from './types';
 import { DEMO_PRODUCTS_PRODUTOS } from '@/lib/produtos/demo';
+import { listProducts } from '@/lib/produtos/data';
+import { lerModulo, gravarModulo, salvarItem } from '@/lib/data/modulo';
 
 export interface Dataset<T> {
   data: T;
@@ -66,8 +68,8 @@ export async function listSizeRows(
   options?: { signal?: AbortSignal },
 ): Promise<Dataset<SizeRow[]>> {
   if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  const rows = rowsForGarment(DEMO_SIZE_ROWS, garmentType);
-  return { data: rows, source: 'demo' };
+  const r = await lerModulo<SizeRow[]>('tamanhos:tabela', DEMO_SIZE_ROWS, DEMO_SIZE_ROWS);
+  return { data: rowsForGarment(r.data, garmentType), source: r.source };
 }
 
 /**
@@ -93,15 +95,20 @@ export async function listProductRules(options?: {
 }): Promise<Dataset<ProductRuleRow[]>> {
   if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
 
-  const data = [...DEMO_PRODUCTS_PRODUTOS]
+  const [prods, salvas] = await Promise.all([
+    listProducts(),
+    lerModulo<ProductSizeRule[]>('tamanhos:regras', [...DEMO_SIZE_RULES.values()], []),
+  ]);
+  const base = prods.source === 'database' ? prods.data.filter((p) => p.status === 'active') : DEMO_PRODUCTS_PRODUTOS;
+  const mapa = new Map(salvas.data.map((r) => [r.productId, r]));
+  const data = [...base]
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
     .map((product) => ({
       productId: product.id,
       productName: product.name,
-      rule: effectiveRule(product.id, DEMO_SIZE_RULES.get(product.id)),
+      rule: effectiveRule(product.id, mapa.get(product.id)),
     }));
-
-  return { data, source: 'demo' };
+  return { data, source: prods.source };
 }
 
 /**
@@ -114,7 +121,7 @@ export async function listSizeLearning(options?: {
   signal?: AbortSignal;
 }): Promise<Dataset<SizeLearningEntry[]>> {
   if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  return { data: [...DEMO_SIZE_LEARNING], source: 'demo' };
+  return lerModulo<SizeLearningEntry[]>('tamanhos:aprendizado', [...DEMO_SIZE_LEARNING], []);
 }
 
 /**
@@ -141,14 +148,17 @@ const PENDING_REASON =
 
 /** Grava uma medida. E o "salva ao sair do campo" do rodape do print. */
 export async function saveMeasurement(row: SizeRow): Promise<WriteResult<SizeRow>> {
-  return { data: row, persisted: false, reason: PENDING_REASON };
+  const atual = (await lerModulo<SizeRow[]>('tamanhos:tabela', DEMO_SIZE_ROWS, DEMO_SIZE_ROWS)).data;
+  return salvarItem('tamanhos:tabela', atual, row);
 }
 
 /** Grava a regra de um produto — o botao `SALVAR` de cada linha. */
 export async function saveProductRule(rule: ProductSizeRule): Promise<
   WriteResult<ProductSizeRule>
 > {
-  return { data: rule, persisted: false, reason: PENDING_REASON };
+  const atual = (await lerModulo<ProductSizeRule[]>('tamanhos:regras', [], [])).data;
+  const nova = [...atual.filter((r) => r.productId !== rule.productId), rule];
+  return { data: rule, ...(await gravarModulo('tamanhos:regras', nova)) };
 }
 
 export { PENDING_REASON };

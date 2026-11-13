@@ -124,7 +124,32 @@ export async function confirmarPagamento(dados: {
 
   const atualizado = await cliente.order.findUnique({ where: { id: pedido.id }, include: { items: true } });
   if (mudou && atualizado) {
+    await creditarPontos(atualizado).catch(() => undefined);
     await avisarPagamentoConfirmado(atualizado, dados.receiptUrl ?? null).catch(() => undefined);
   }
   return atualizado ? publico(atualizado) : null;
+}
+
+/** Credita os pontos do Clube VIP na conta da cliente (por userId ou e-mail). */
+async function creditarPontos(pedido: { id: string; code: string; total: unknown; userId: string | null; customerEmail: string | null }) {
+  const c = db();
+  if (!c) return;
+  const regrasLinha = await c.setting.findUnique({ where: { key: 'modulo:fidelidade:regras' } });
+  const regras = (regrasLinha?.value as { pointsPerReal?: number; isEnabled?: boolean } | null) ?? { pointsPerReal: 1, isEnabled: true };
+  if (regras.isEnabled === false) return;
+  const usuario = pedido.userId
+    ? await c.user.findUnique({ where: { id: pedido.userId } })
+    : pedido.customerEmail
+      ? await c.user.findUnique({ where: { email: pedido.customerEmail.toLowerCase() } })
+      : null;
+  if (!usuario) return;
+  const pontos = Math.floor(Number(pedido.total) * Number(regras.pointsPerReal ?? 1));
+  if (pontos <= 0) return;
+  const chave = `cliente:${usuario.id}:pontos`;
+  const l = await c.setting.findUnique({ where: { key: chave } });
+  const extrato = (l?.value as { id: string }[] | null) ?? [];
+  if (extrato.some((m) => m.id === `compra-${pedido.id}`)) return;
+  extrato.unshift({ id: `compra-${pedido.id}`, tipo: 'earn', pontos, descricao: `Compra #${pedido.code}`, criadoEm: new Date().toISOString() } as never);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await c.setting.upsert({ where: { key: chave }, update: { value: extrato as any }, create: { key: chave, value: extrato as any } });
 }

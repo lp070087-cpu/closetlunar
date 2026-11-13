@@ -33,37 +33,19 @@
 import { DEMO_SEARCH_TERMS } from './demo';
 import { DEFAULT_WINDOW } from './metrics';
 import type { SearchTermRow } from './types';
+import { lerModulo } from '@/lib/data/modulo';
 
-const PENDING_REASON =
-  'Persistência ainda não conectada: o banco (Neon/PostgreSQL) entra na fase de integração.';
+const PENDING_REASON = 'Ainda não há buscas registradas.';
 
-/** O que uma leitura devolve: as linhas cruas do período e de onde vieram. */
 export interface SearchTermsResult {
   data: SearchTermRow[];
-  source: 'demo';
-  /** Presente só enquanto a persistência não está ligada. */
+  source: 'demo' | 'database';
   reason?: string;
 }
 
-/**
- * AS BUSCAS DE UM PERÍODO — a leitura da tela.
- *
- * Devolve as LINHAS CRUAS (não agrupadas): o agrupamento é regra, e regra mora em
- * `metrics.ts`, onde a bancada a alcança. Devolver as listas prontas daqui
- * deixaria a agregação sem prova — e ela é metade do módulo.
- *
- * `days` NÃO é aplicado na demonstração (não há linha para filtrar), mas entra na
- * assinatura porque é o parâmetro que o banco vai usar: quando o Neon ligar, é
- * aqui que a data de corte é calculada. Sem ele, a tela teria que montar a
- * consulta, e a camada de dados deixaria de ser o único ponto de contato.
- */
 export async function listSearchTerms(days: number = DEFAULT_WINDOW): Promise<SearchTermsResult> {
   void days;
-  return {
-    data: [...DEMO_SEARCH_TERMS],
-    source: 'demo',
-    reason: PENDING_REASON,
-  };
+  return lerModulo<SearchTermRow[]>('busca:termos', [...DEMO_SEARCH_TERMS], []);
 }
 
 export { PENDING_REASON };

@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { Heart, MessageCircle } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
+import { BotaoFavorito } from './botao-favorito';
 import { useStoreWhatsApp, whatsappLinkFor } from '@/lib/site/whatsapp';
 import { BotaoComprar } from './botao-comprar';
 import { effectivePrice, discountPercent, strikethroughPrice } from '@/lib/produtos/metrics';
@@ -100,13 +101,11 @@ export function ProductCard({ product }: { product: Product }) {
           </div>
         )}
 
-        <Link
-          href="/conta/favoritos"
-          aria-label={`Favoritar ${product.name}`}
-          className="focus-ring absolute right-2 top-2 z-10 grid size-8 place-items-center rounded-full bg-background/90 text-foreground shadow-soft transition-transform hover:scale-110 md:right-3 md:top-3 md:size-9"
-        >
-          <Heart className="size-4" aria-hidden />
-        </Link>
+        <BotaoFavorito
+          produtoId={product.id}
+          nome={product.name}
+          className="absolute right-2 top-2 z-10 size-8 md:right-3 md:top-3 md:size-9"
+        />
       </div>
 
       <div className="flex flex-1 flex-col p-3 md:p-4">

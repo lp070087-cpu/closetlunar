@@ -6,6 +6,7 @@
 
 import { DEMO_USER_ROLES } from './demo';
 import type { UserRoleRow } from './types';
+import { usuariosAcao } from '@/lib/data/registros-acoes';
 
 const PENDING_REASON =
   'Persistência ainda não conectada: o banco (Neon/PostgreSQL) entra na fase de integração.';
@@ -20,9 +21,11 @@ const PENDING_REASON =
  */
 export async function listUserRoles(): Promise<{
   data: UserRoleRow[];
-  source: 'demo';
+  source: 'demo' | 'database';
   reason: string;
 }> {
+  const reais = await usuariosAcao();
+  if (reais) return { data: reais, source: 'database', reason: '' };
   return { data: DEMO_USER_ROLES.map((linha) => ({ ...linha })), source: 'demo', reason: PENDING_REASON };
 }
 

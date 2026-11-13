@@ -95,3 +95,27 @@ export async function gravarModuloAcao(chave: string, valor: unknown): Promise<{
     return { ok: false, reason: 'Não foi possível salvar. Tente novamente.' };
   }
 }
+
+/**
+ * Cadastro PUBLICO do pop-up de desconto -> CRM (`modulo:crm:leads`).
+ * Unica escrita aberta: valida campos, limita tamanho e evita duplicar e-mail.
+ */
+export async function registrarLeadAcao(dados: { nome: string; whatsapp: string; email: string }): Promise<{ ok: boolean; reason?: string }> {
+  if (!temBanco()) return { ok: false, reason: 'Cadastro indisponível no momento.' };
+  const nome = String(dados?.nome ?? '').trim().slice(0, 80);
+  const email = String(dados?.email ?? '').trim().toLowerCase().slice(0, 120);
+  const whatsapp = String(dados?.whatsapp ?? '').replace(/\D/g, '').slice(0, 13);
+  if (nome.length < 2 || !/^\S+@\S+\.\S+$/.test(email) || whatsapp.length < 10) {
+    return { ok: false, reason: 'Confira nome, WhatsApp (com DDD) e e-mail.' };
+  }
+  const c = db()!;
+  const chave = 'modulo:crm:leads';
+  const l = await c.setting.findUnique({ where: { key: chave } });
+  const lista = ((l?.value as { email: string | null }[] | null) ?? []).slice(0, 5000);
+  if (!lista.some((x) => x.email === email)) {
+    lista.unshift({ id: `lead-${Date.now().toString(36)}`, name: nome, email, whatsapp, createdAt: new Date().toISOString() } as never);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await c.setting.upsert({ where: { key: chave }, update: { value: lista as any }, create: { key: chave, value: lista as any } });
+  }
+  return { ok: true };
+}

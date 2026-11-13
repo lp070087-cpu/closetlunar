@@ -12,9 +12,14 @@ import {
   DEMO_PAYMENTS,
 } from './demo';
 import type { ConnectionInfo, DeliveryZone, MelhorEnvioConfig, PaymentConfig } from './types';
+import { lerModulo, gravarModulo } from '@/lib/data/modulo';
 
-const PENDING_REASON =
-  'Persistência ainda não conectada: o banco (Neon/PostgreSQL) entra na fase de integração.';
+const PENDING_REASON = 'Não foi possível salvar agora. Tente novamente.';
+
+/** Salva a lista inteira de zonas de entrega propria. */
+export async function saveZones(zones: DeliveryZone[]): Promise<{ persisted: boolean; reason?: string }> {
+  return gravarModulo('configuracoes:zonas', zones);
+}
 
 /**
  * As zonas de entrega própria.
@@ -27,7 +32,9 @@ export async function listDeliveryZones(): Promise<{
   source: 'demo';
   reason: string;
 }> {
-  return { data: DEMO_DELIVERY_ZONES.map((zona) => ({ ...zona })), source: 'demo', reason: PENDING_REASON };
+  const padrao = DEMO_DELIVERY_ZONES.map((zona) => ({ ...zona }));
+  const r = await lerModulo<DeliveryZone[]>('configuracoes:zonas', padrao, padrao);
+  return { data: r.data, source: 'demo', reason: '' };
 }
 
 /**
@@ -64,8 +71,11 @@ export async function getPayments(): Promise<{
 /** A gravação da entrega própria. FUTURO (Neon): `UPDATE local_delivery_zones SET price = $2 WHERE id = $1`. */
 export async function saveZonePrices(
   prices: { id: string; price: number }[],
-): Promise<{ data: { id: string; price: number }[]; persisted: false; reason: string }> {
-  return { data: prices.map((p) => ({ ...p })), persisted: false, reason: PENDING_REASON };
+): Promise<{ data: { id: string; price: number }[]; persisted: boolean; reason: string }> {
+  const atual = (await listDeliveryZones()).data;
+  const mapa = new Map(prices.map((p) => [p.id, p.price]));
+  const r = await saveZones(atual.map((z) => (mapa.has(z.id) ? { ...z, price: mapa.get(z.id)! } : z)));
+  return { data: prices.map((p) => ({ ...p })), persisted: r.persisted, reason: r.persisted ? 'Preços salvos.' : r.reason ?? PENDING_REASON };
 }
 
 /** A gravação do Melhor Envio. FUTURO (Neon): `settings` upsert por `key`. */

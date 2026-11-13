@@ -56,6 +56,7 @@ import { listOrders as listPedidosOrders, type Dataset } from '@/lib/pedidos/dat
 import type { Order } from '@/lib/pedidos/types';
 import type { DateWindow, FinancialCosts } from './types';
 import { DEMO_COSTS, COSTS_KEY } from './demo';
+import { lerModulo, gravarModulo } from '@/lib/data/modulo';
 
 export type { Dataset };
 
@@ -95,7 +96,7 @@ export async function listFinancialOrders(options?: {
  */
 export async function getCosts(options?: { signal?: AbortSignal }): Promise<Dataset<FinancialCosts>> {
   if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  return { data: DEMO_COSTS, source: 'demo' };
+  return lerModulo<FinancialCosts>('financeiro:custos', DEMO_COSTS, DEMO_COSTS);
 }
 
 /* ------------------------------------------------------------------ escritas */
@@ -108,7 +109,7 @@ export async function getCosts(options?: { signal?: AbortSignal }): Promise<Data
  * `COSTS_KEY`, e a tela ja trata os dois resultados.
  */
 export async function saveCosts(costs: FinancialCosts): Promise<WriteResult<FinancialCosts>> {
-  return { data: costs, persisted: false, reason: PENDING_REASON };
+  return { data: costs, ...(await gravarModulo('financeiro:custos', costs)) };
 }
 
 /**

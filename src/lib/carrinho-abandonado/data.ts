@@ -42,6 +42,7 @@ import {
 } from './demo';
 import { buildCartConfig, buildCartStats, sortCarts } from './metrics';
 import type { CartConfig, CartDataset } from './types';
+import { lerModulo, gravarModulo } from '@/lib/data/modulo';
 
 export interface Dataset<T> {
   data: T;
@@ -64,14 +65,15 @@ export async function getCartDataset(options?: {
 }): Promise<Dataset<CartDataset>> {
   if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
 
-  const carts = sortCarts(DEMO_ABANDONED_CARTS);
+  const [lista, cfg] = await Promise.all([listAbandonedCarts(), getCartConfig()]);
+  const carts = lista.data;
   return {
     data: {
       carts,
       stats: buildCartStats(carts),
-      config: buildCartConfig(DEMO_CART_CONFIG),
+      config: cfg.data,
     },
-    source: 'demo',
+    source: lista.source,
   };
 }
 
@@ -80,7 +82,8 @@ export async function listAbandonedCarts(options?: {
   signal?: AbortSignal;
 }): Promise<Dataset<CartDataset['carts']>> {
   if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  return { data: sortCarts(DEMO_ABANDONED_CARTS), source: 'demo' };
+  const r = await lerModulo<CartDataset['carts']>('carrinho:lista', DEMO_ABANDONED_CARTS, []);
+  return { data: sortCarts(r.data), source: r.source };
 }
 
 /** So a configuracao de adm-009. */
@@ -88,7 +91,8 @@ export async function getCartConfig(options?: {
   signal?: AbortSignal;
 }): Promise<Dataset<CartConfig>> {
   if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  return { data: buildCartConfig(DEMO_CART_CONFIG), source: 'demo' };
+  const r = await lerModulo<CartConfig>('carrinho:config', buildCartConfig(DEMO_CART_CONFIG), buildCartConfig(DEMO_CART_CONFIG));
+  return { data: buildCartConfig(r.data), source: r.source };
 }
 
 export interface WriteResult<T> {
@@ -113,7 +117,8 @@ const PENDING_REASON =
  * escolhe a mensagem. A camada de dados nao inventa confirmacao.
  */
 export async function saveCartConfig(config: CartConfig): Promise<WriteResult<CartConfig>> {
-  return { data: buildCartConfig(config), persisted: false, reason: PENDING_REASON };
+  const cfg = buildCartConfig(config);
+  return { data: cfg, ...(await gravarModulo('carrinho:config', cfg)) };
 }
 
 export type { AbandonedCart, CartConfig, CartDelay, CartDataset, CartStats, CartStatus } from './types';

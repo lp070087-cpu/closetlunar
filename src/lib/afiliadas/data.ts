@@ -52,6 +52,7 @@
 
 import { DEMO_AFFILIATES } from './demo';
 import { sortAffiliates } from './metrics';
+import { lerModulo, salvarItem } from '@/lib/data/modulo';
 import type { Affiliate, AffiliateStatus } from './types';
 
 export interface Dataset<T> {
@@ -83,7 +84,8 @@ const PENDING_REASON =
  */
 export async function listAffiliates(options?: { signal?: AbortSignal }): Promise<Dataset<Affiliate[]>> {
   if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  return { data: sortAffiliates(DEMO_AFFILIATES), source: 'demo' };
+  const r = await lerModulo<Affiliate[]>('afiliadas:lista', DEMO_AFFILIATES, []);
+  return { data: sortAffiliates(r.data), source: r.source };
 }
 
 /* --------------------------------------------------------------- escritas */
@@ -95,11 +97,8 @@ export async function listAffiliates(options?: { signal?: AbortSignal }): Promis
  * que faz a chamada ser uma insercao. Ver `types.ts`.
  */
 export async function saveAffiliate(affiliate: Affiliate): Promise<WriteResult<Affiliate>> {
-  return {
-    data: affiliate,
-    persisted: false,
-    reason: PENDING_REASON,
-  };
+  const atual = (await listAffiliates()).data;
+  return salvarItem('afiliadas:lista', atual, affiliate);
 }
 
 /**
@@ -120,11 +119,7 @@ export async function setAffiliateStatus(
   affiliate: Affiliate,
   status: AffiliateStatus,
 ): Promise<WriteResult<Affiliate>> {
-  return {
-    data: { ...affiliate, status },
-    persisted: false,
-    reason: PENDING_REASON,
-  };
+  return saveAffiliate({ ...affiliate, status });
 }
 
 export { PENDING_REASON };

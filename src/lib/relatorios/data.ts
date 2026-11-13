@@ -48,6 +48,7 @@
  */
 
 import { DEMO_ABANDONED_REPORT, DEMO_CATEGORY_REPORT, DEMO_CUSTOMER_REPORT, DEMO_PRODUCT_REPORT } from './demo';
+import { relatorioAcao } from '@/lib/data/registros-acoes';
 import type {
   AbandonedCartRow,
   CategoryReportRow,
@@ -93,8 +94,9 @@ export async function listProductReport(
   input: ReportWindowInput,
   options?: { signal?: AbortSignal },
 ): Promise<Dataset<ProductReportRow[]>> {
-  void input;
   if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
+  const r = await relatorioAcao(input.range, input.start, input.end);
+  if (r) return { data: r.produtos, source: 'database' };
   return { data: DEMO_PRODUCT_REPORT, source: 'demo' };
 }
 
@@ -111,8 +113,9 @@ export async function listCustomerReport(
   input: ReportWindowInput,
   options?: { signal?: AbortSignal },
 ): Promise<Dataset<CustomerReportRow[]>> {
-  void input;
   if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
+  const r = await relatorioAcao(input.range, input.start, input.end);
+  if (r) return { data: r.clientes, source: 'database' };
   return { data: [...DEMO_CUSTOMER_REPORT], source: 'demo' };
 }
 
@@ -121,8 +124,9 @@ export async function listCategoryReport(
   input: ReportWindowInput,
   options?: { signal?: AbortSignal },
 ): Promise<Dataset<CategoryReportRow[]>> {
-  void input;
   if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
+  const r = await relatorioAcao(input.range, input.start, input.end);
+  if (r) return { data: r.categorias, source: 'database' };
   return { data: [...DEMO_CATEGORY_REPORT], source: 'demo' };
 }
 
@@ -133,6 +137,8 @@ export async function listAbandonedReport(
 ): Promise<Dataset<AbandonedCartRow[]>> {
   void input;
   if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
+  const r = await relatorioAcao('30d');
+  if (r) return { data: [], source: 'database' };
   return { data: [...DEMO_ABANDONED_REPORT], source: 'demo' };
 }
 

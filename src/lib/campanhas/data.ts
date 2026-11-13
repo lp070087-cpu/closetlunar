@@ -41,6 +41,7 @@
 
 import { DEMO_CAMPAIGNS, DEMO_CAMPAIGN_PERFORMANCE } from './demo';
 import { sortCampaigns } from './metrics';
+import { lerModulo, salvarItem, removerItem } from '@/lib/data/modulo';
 import type { Campaign, CampaignPerformance } from './types';
 
 export interface Dataset<T> {
@@ -63,12 +64,14 @@ export interface Dataset<T> {
  */
 export async function listCampaigns(options?: { signal?: AbortSignal }): Promise<Dataset<Campaign[]>> {
   if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  return { data: sortCampaigns(DEMO_CAMPAIGNS), source: 'demo' };
+  const r = await lerModulo<Campaign[]>('campanhas:lista', DEMO_CAMPAIGNS, []);
+  return { data: sortCampaigns(r.data), source: r.source };
 }
 
 /** Uma campanha por id. `null` quando nao existe. */
 export async function getCampaign(id: string): Promise<Dataset<Campaign | null>> {
-  return { data: DEMO_CAMPAIGNS.find((campaign) => campaign.id === id) ?? null, source: 'demo' };
+  const r = await listCampaigns();
+  return { data: r.data.find((campaign) => campaign.id === id) ?? null, source: r.source };
 }
 
 /**
@@ -79,7 +82,8 @@ export async function getCampaign(id: string): Promise<Dataset<Campaign | null>>
  * muda, porque quem ordena e corta e `topCampaignsByRevenue`.
  */
 export async function listCampaignPerformance(): Promise<Dataset<CampaignPerformance[]>> {
-  return { data: DEMO_CAMPAIGN_PERFORMANCE, source: 'demo' };
+  const r = await listCampaigns();
+  return { data: r.source === 'demo' ? DEMO_CAMPAIGN_PERFORMANCE : [], source: r.source };
 }
 
 /**
@@ -105,15 +109,15 @@ const PENDING_REASON =
   'Persistência ainda não conectada: o banco (Neon/PostgreSQL) entra na fase de integração.';
 
 export async function createCampaign(campaign: Campaign): Promise<WriteResult<Campaign>> {
-  return { data: campaign, persisted: false, reason: PENDING_REASON };
+  return salvarItem('campanhas:lista', (await listCampaigns()).data, campaign);
 }
 
 export async function updateCampaign(campaign: Campaign): Promise<WriteResult<Campaign>> {
-  return { data: campaign, persisted: false, reason: PENDING_REASON };
+  return salvarItem('campanhas:lista', (await listCampaigns()).data, campaign);
 }
 
 export async function deleteCampaign(id: string): Promise<WriteResult<{ id: string }>> {
-  return { data: { id }, persisted: false, reason: PENDING_REASON };
+  return removerItem('campanhas:lista', (await listCampaigns()).data, id);
 }
 
 export { PENDING_REASON };
