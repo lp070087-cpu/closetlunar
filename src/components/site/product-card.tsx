@@ -1,57 +1,31 @@
 'use client';
 
 import Link from 'next/link';
-import { useStoreWhatsApp, whatsappLinkFor } from '@/lib/site/whatsapp';
 import { Heart, MessageCircle } from 'lucide-react';
+import { useStoreWhatsApp, whatsappLinkFor } from '@/lib/site/whatsapp';
 import { BotaoComprar } from './botao-comprar';
 import { effectivePrice, discountPercent, strikethroughPrice } from '@/lib/produtos/metrics';
 import type { Product } from '@/lib/produtos/types';
 import { formatBRL } from '@/lib/utils';
 
+/** Parcelamento oferecido pela loja (cartao, via InfinitePay). */
+export const PARCELAS_SEM_JUROS = 3;
+
 /**
- * O cartao de produto — o bloco que a Home repete seis vezes.
+ * O cartao de produto.
  *
- * ================== O DESENHO VEM DO PRINT; AS CONTAS, DO ADMIN ==================
- *
- * O print `003944` mostra o cartao inteiro: o selo `-10%` no canto, o `BEST
- * SELLER` abaixo dele, o coracao no canto oposto, a foto em 3:4, o nome, a
- * fileira de tamanhos (`P M G GG`), os pontos de cor, o `De R$ 200,00` riscado,
- * o `Por R$ 179,00`, o `ou 6x de R$ 29,83 sem juros` e os dois botoes.
- *
- * **Nenhuma dessas contas e feita aqui.** O desconto, o preco efetivo e o preco
- * riscado saem de `lib/produtos/metrics` — o MESMO modulo que o painel do admin
- * usa. Se o cartao calculasse o proprio desconto, o admin e o site poderiam
- * discordar sobre a porcentagem da mesma peca, e os dois numeros seriam
- * defensaveis. `discountPercent`, `effectivePrice` e `strikethroughPrice` ja
- * existiam; o site so os desenha.
- *
- * ================== OS SELOS, E POR QUE NAO HA "LANCAMENTO" ==================
- *
- * O original monta ate quatro selos: `-N%`, `Lançamento` (criado nos ultimos 30
- * dias), `Best Seller` (destaque) e `Ultimas pecas` (estoque <= 3), e mostra os
- * DOIS PRIMEIROS.
- *
- * Aqui nao ha `Lançamento`. Ele depende de `Date.now()` — um selo que muda
- * sozinho com o relogio, e que a bancada nao consegue provar (o mesmo defeito do
- * `cuponsValidos`, que a Fase 2 removeu do dashboard do cliente por depender do
- * relogio). O material tambem nao o mostra: nenhum print de site tem o selo
- * `LANÇAMENTO`. Ficam dois — `-N%` e `Best Seller` —, e o `Ultimas pecas` no
- * lugar do segundo quando o estoque e baixo, como no `-42%` riscado do print
- * `003936`.
- *
- * ================== O CORACAO E O `COMPRAR` NAO AGEM ==================
- *
- * O coracao leva para `/conta/favoritos`, que EXISTE (Fase 2): e um link real, e
- * nao um botao que finge salvar. O `COMPRAR` e o `TIRAR DUVIDA` sao botoes de
- * alvo: a sacola e o checkout entram com o carrinho persistido (Fase 4), e um
- * botao que fingisse adicionar seria a promessa que a regra de honestidade
- * proibe. O de WhatsApp e o unico dos dois que FAZ algo — abre o `wa.me`.
+ * - Foto 3:4; ao passar o mouse, troca para a 2a foto (costas/detalhe) se houver.
+ * - Selos (-N%, Ultimas pecas / Destaque) a esquerda, favoritar a direita.
+ * - Nome, tamanhos, preco (com riscado quando ha promo) e "ou 3x sem juros".
+ * - Botoes Comprar e Duvidas pelo WhatsApp sempre alinhados no rodape do cartao.
+ * As contas de preco/desconto vem de `lib/produtos/metrics` (as mesmas do admin).
  */
 export function ProductCard({ product }: { product: Product }) {
   const whatsapp = useStoreWhatsApp();
   const preco = effectivePrice(product);
   const riscado = strikethroughPrice(product);
-  const desconto = riscoEfetivo(product) ? discountPercent(product.price, preco) : 0;
+  const temDesconto = riscado !== null && riscado > preco;
+  const desconto = temDesconto ? discountPercent(product.price, preco) : 0;
   const semEstoque = product.stock <= 0;
 
   const selos: { label: string; tom: 'escuro' | 'claro' }[] = [];
@@ -59,29 +33,53 @@ export function ProductCard({ product }: { product: Product }) {
   if (product.stock > 0 && product.stock <= 3) selos.push({ label: 'Últimas peças', tom: 'claro' });
   else if (product.featured) selos.push({ label: 'Destaque', tom: 'claro' });
 
-  const foto = product.images[0]?.url ?? '';
+  const foto = product.images[0];
+  const verso = product.images[1];
   const ordem = ['PP', 'P', 'M', 'G', 'GG', 'XG'];
   const tamanhos = [...product.sizes].sort((a, b) => ordem.indexOf(a) - ordem.indexOf(b));
+  const parcela = preco / PARCELAS_SEM_JUROS;
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-xl border border-border/40 bg-background shadow-[0_1px_3px_rgba(0,0,0,0.03)] transition-all duration-500 hover:-translate-y-1 hover:border-border hover:shadow-elegant md:rounded-2xl">
-      <div className="relative block aspect-[3/4] overflow-hidden bg-secondary">
-        <Link href={`/produto/${product.slug}`} aria-label={product.name}>
+    <article className="group flex h-full flex-col overflow-hidden rounded-2xl bg-background shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-border/50 transition-all duration-500 hover:-translate-y-1 hover:shadow-elegant hover:ring-border">
+      <div className="relative aspect-[3/4] overflow-hidden bg-secondary">
+        <Link href={`/produto/${product.slug}`} aria-label={product.name} className="absolute inset-0">
           {foto ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={foto}
-              alt={product.images[0]?.alt || product.name}
-              loading="lazy"
-              className="absolute inset-0 size-full object-cover"
-            />
-          ) : null}
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={foto.url}
+                alt={foto.alt || product.name}
+                loading="lazy"
+                decoding="async"
+                className={
+                  'absolute inset-0 size-full object-cover transition-all duration-700 ease-out group-hover:scale-[1.04] ' +
+                  (verso ? 'group-hover:opacity-0' : '')
+                }
+              />
+              {verso ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={verso.url}
+                  alt=""
+                  aria-hidden
+                  loading="lazy"
+                  decoding="async"
+                  className="absolute inset-0 size-full scale-[1.04] object-cover opacity-0 transition-all duration-700 ease-out group-hover:scale-100 group-hover:opacity-100"
+                />
+              ) : null}
+            </>
+          ) : (
+            <span className="absolute inset-0 grid place-items-center font-serif text-6xl italic text-foreground/15">
+              {product.name.charAt(0)}
+            </span>
+          )}
+          <span className="pointer-events-none absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-black/10 to-transparent" />
         </Link>
 
         {semEstoque && (
           <div className="absolute inset-0 z-10 grid place-items-center bg-background/60 backdrop-blur-[1px]">
-            <span className="rounded-full border border-border bg-background px-3 py-1.5 text-[11px] uppercase tracking-[0.2em]">
-              Produto indisponível
+            <span className="rounded-full border border-border bg-background px-3 py-1.5 text-[10px] uppercase tracking-[0.2em]">
+              Esgotado
             </span>
           </div>
         )}
@@ -92,10 +90,8 @@ export function ProductCard({ product }: { product: Product }) {
               <span
                 key={s.label}
                 className={
-                  'max-w-full truncate rounded-full px-2 py-0.5 text-[9px] font-medium uppercase tracking-[0.08em] backdrop-blur md:px-2.5 md:py-1 md:text-[10px] md:tracking-[0.12em] ' +
-                  (s.tom === 'escuro'
-                    ? 'bg-foreground text-background'
-                    : 'border border-border/60 bg-background/95 text-foreground')
+                  'max-w-full truncate rounded-full px-2 py-0.5 text-[9px] font-medium uppercase tracking-[0.1em] shadow-sm md:px-2.5 md:py-1 md:text-[10px] ' +
+                  (s.tom === 'escuro' ? 'bg-foreground text-background' : 'bg-background/95 text-foreground')
                 }
               >
                 {s.label}
@@ -107,26 +103,26 @@ export function ProductCard({ product }: { product: Product }) {
         <Link
           href="/conta/favoritos"
           aria-label={`Favoritar ${product.name}`}
-          className="focus-ring absolute right-2 top-2 z-10 grid size-8 place-items-center md:right-3 md:top-3 md:size-9 rounded-full bg-background/90 text-foreground shadow-soft transition-transform hover:scale-105"
+          className="focus-ring absolute right-2 top-2 z-10 grid size-8 place-items-center rounded-full bg-background/90 text-foreground shadow-soft transition-transform hover:scale-110 md:right-3 md:top-3 md:size-9"
         >
           <Heart className="size-4" aria-hidden />
         </Link>
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 p-3 md:p-4">
+      <div className="flex flex-1 flex-col p-3 md:p-4">
         <Link
           href={`/produto/${product.slug}`}
-          className="line-clamp-2 min-h-[2.5rem] text-xs font-medium leading-snug transition-colors hover:text-accent md:text-sm"
+          className="line-clamp-2 min-h-[2.5rem] text-[13px] font-medium leading-snug text-foreground transition-colors hover:text-accent md:text-sm"
         >
           {product.name}
         </Link>
 
         {tamanhos.length > 0 && (
-          <div className="flex flex-wrap gap-1">
+          <div className="mt-2 flex flex-wrap gap-1">
             {tamanhos.map((t) => (
               <span
                 key={t}
-                className="rounded border border-border/60 px-1.5 py-0.5 text-[10px] font-medium tracking-wider text-muted-foreground"
+                className="grid h-5 min-w-[1.5rem] place-items-center rounded-full bg-secondary/70 px-1.5 text-[10px] font-medium text-muted-foreground"
               >
                 {t}
               </span>
@@ -134,38 +130,19 @@ export function ProductCard({ product }: { product: Product }) {
           </div>
         )}
 
-        {product.colors.length > 0 && (
-          <div className="flex items-center gap-1.5">
-            {product.colors.slice(0, 4).map((c) => (
-              <span
-                key={c.id}
-                title={c.name}
-                style={{ backgroundColor: c.hex }}
-                className="size-3.5 rounded-full border border-border/60 shadow-sm"
-              />
-            ))}
-            {product.colors.length > 4 && (
-              <span className="text-[10px] text-muted-foreground">+{product.colors.length - 4}</span>
-            )}
-          </div>
-        )}
-
-        <div className="mt-1 flex flex-col gap-0.5">
-          {riscado !== null && (
-            <span className="text-[11px] text-muted-foreground line-through">
-              De {formatBRL(riscado)}
-            </span>
+        <div className="mt-3">
+          {temDesconto && (
+            <span className="block text-[11px] text-muted-foreground line-through">{formatBRL(riscado!)}</span>
           )}
-          <span className="text-base font-medium tracking-tight text-foreground md:text-lg">
-            {riscado !== null ? 'Por ' : ''}
+          <span className="block text-base font-semibold tracking-tight text-foreground md:text-lg">
             {formatBRL(preco)}
           </span>
-          <span className="text-[11px] text-muted-foreground">
-            Pix ou cartão
+          <span className="block text-[11px] leading-tight text-muted-foreground">
+            ou {PARCELAS_SEM_JUROS}x de {formatBRL(parcela)} <span className="whitespace-nowrap">sem juros</span>
           </span>
         </div>
 
-        <div className="mt-auto flex min-w-0 flex-col gap-1.5 pt-2 md:gap-2">
+        <div className="mt-auto flex min-w-0 flex-col gap-1.5 pt-3 md:gap-2">
           <BotaoComprar product={product} className="w-full" />
           <a
             href={linkDuvida(product, whatsapp)}
@@ -175,14 +152,10 @@ export function ProductCard({ product }: { product: Product }) {
             className="inline-flex h-9 w-full min-w-0 items-center justify-center gap-1.5 rounded-full border border-border bg-background px-2 text-[10px] font-medium uppercase tracking-[0.06em] text-foreground transition-colors hover:border-[#25D366] hover:text-[#128C7E] md:h-10 md:gap-2 md:text-[11px] md:tracking-[0.12em]"
           >
             <MessageCircle className="size-3.5 shrink-0" aria-hidden />
-            {whatsapp ? (
-              <span className="whitespace-nowrap">
-                <span className="md:hidden">Dúvidas</span>
-                <span className="hidden md:inline">Tirar dúvida</span>
-              </span>
-            ) : (
-              <span className="whitespace-nowrap">Indisponível</span>
-            )}
+            <span className="whitespace-nowrap">
+              <span className="md:hidden">Dúvidas</span>
+              <span className="hidden md:inline">Tirar dúvida</span>
+            </span>
           </a>
         </div>
       </div>
@@ -190,26 +163,6 @@ export function ProductCard({ product }: { product: Product }) {
   );
 }
 
-/**
- * Se ha desconto a exibir.
- *
- * O desconto percentual so faz sentido quando o preco riscado EXISTE e e maior
- * que o praticado. Sem esta guarda, um produto sem preco antigo produziria um
- * `-0%`, e um com promocional igual ao cheio produziria `-0%` tambem — dois
- * selos que o print nao tem.
- */
-function riscoEfetivo(product: Pick<Product, 'price' | 'promoPrice' | 'compareAtPrice'>): boolean {
-  const riscado = strikethroughPrice(product);
-  return riscado !== null && riscado > effectivePrice(product);
-}
-
-/**
- * O link do `TIRAR DUVIDA PELO WHATSAPP`.
- *
- * A mensagem e a do fallback do original (`product_query`), com o nome e o preco
- * ja preenchidos — e o link do produto aponta para `/produto/<slug>`, que a Fase
- * 3 cria. Sem numero configurado, cai no `wa.me` puro, e nao num link quebrado.
- */
 function linkDuvida(product: Product, phone: string): string | undefined {
   return whatsappLinkFor(phone, `Olá! Gostaria de tirar uma dúvida sobre o produto ${product.name}.`);
 }

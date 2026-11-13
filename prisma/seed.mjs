@@ -228,7 +228,7 @@ async function main() {
     if (jaTemBeneficios === 0) {
       const beneficios = [
         { iconName: 'Truck', title: 'Frete grátis', description: 'acima de R$299', sortOrder: 1 },
-        { iconName: 'CreditCard', title: 'Pague em até 6x', description: 'sem juros', sortOrder: 2 },
+        { iconName: 'CreditCard', title: 'Pague em até 3x', description: 'sem juros', sortOrder: 2 },
         { iconName: 'ShieldCheck', title: 'Compra segura', description: 'dados protegidos', sortOrder: 3 },
         { iconName: 'RefreshCw', title: 'Primeira troca grátis', description: 'em até 7 dias', sortOrder: 4 },
         { iconName: 'MessageCircle', title: 'Atendimento', description: 'via WhatsApp', sortOrder: 5 },

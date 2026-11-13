@@ -326,7 +326,7 @@ export const DEMO_BENEFITS: Benefit[] = [
   {
     id: 'ben-02',
     iconName: 'CreditCard',
-    title: 'Pague em até 6x',
+    title: 'Pague em até 3x',
     description: 'sem juros',
     sortOrder: 2,
     isActive: true,

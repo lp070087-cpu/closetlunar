@@ -132,7 +132,7 @@ export default async function ProdutoPage({ params }: { params: Promise<{ slug: 
             )}
             <div className="text-3xl font-medium">{formatBRL(preco)}</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              No Pix ou no cartão, com pagamento seguro
+              ou {3}x de {formatBRL(preco / 3)} sem juros no cartão · Pix com liberação na hora
             </div>
           </div>
 

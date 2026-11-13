@@ -69,6 +69,9 @@ export interface HeroSlide {
   imageDesktopUrl: string | null;
   /** `IMAGEM MOBILE (OPCIONAL)`. `null` = a home usa a versao desktop. */
   imageMobileUrl: string | null;
+  /** Video do banner (mp4, sem audio). Quando existe, toca no lugar da imagem. */
+  videoDesktopUrl?: string | null;
+  videoMobileUrl?: string | null;
   /**
    * `ORDEM DE EXIBIÇÃO` — o numero, e nao a posicao.
    *

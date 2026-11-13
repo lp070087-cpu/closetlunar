@@ -76,6 +76,7 @@ import {
   DEMO_STORE_THEMES,
 } from './demo';
 import { listCategories } from '@/lib/categorias/data';
+import { lerModulo, gravarModulo, salvarItem, removerItem } from '@/lib/data/modulo';
 
 /**
  * A RAZAO UNICA das escritas que nao gravam.
@@ -83,82 +84,86 @@ import { listCategories } from '@/lib/categorias/data';
  * Um texto so, exportado, porque cinco telas repetindo a mesma frase escrita de
  * cinco jeitos diferentes e como se comeca a achar que sao cinco motivos diferentes.
  */
-const PENDING_REASON =
-  'Persistência ainda não conectada: o banco (Neon/PostgreSQL) entra na fase de integração.';
 
 /* ================================ Banners ================================ */
-
-/**
- * OS SLIDES — a lista da tela `Banners` E a da aba `Hero Banner`.
- *
- * A ordenacao NAO acontece aqui: `byDisplayOrder` roda na tela, sobre o que chegou.
- * Ordenar nos dois lugares seria dois donos da mesma ordem, e a tela precisa da
- * lista ORDENADA justamente para calcular o `ORDEM: n` por posicao (`positionOf`).
- *
- * A ASSINATURA E A MESMA `{ signal }` do resto do painel: cancelamento ja esta no
- * contrato para nao ter que mudar quando a leitura virar rede.
+/*
+ * Persistencia: `lib/data/modulo` (Setting `modulo:conteudo:*`). Leitura publica
+ * (o site mostra), escrita so do admin. Sem nada salvo, a loja usa o PADRAO
+ * REAL abaixo (os banners com as fotos da loja), nao a demonstracao.
  */
+
+const PENDING_REASON = 'Não foi possível salvar agora. Tente novamente.';
+
+export const BANNERS_PADRAO: HeroSlide[] = [
+  {
+    id: 'banner-video',
+    title: 'Movimento que veste você',
+    eyebrow: 'Nova coleção',
+    subtitle: 'Conjuntos com compressão na medida, tecidos que não marcam e caimento pensado para o seu treino.',
+    linkUrl: '/categoria/novidades',
+    ctaText: 'Ver coleção',
+    imageDesktopUrl: '/site/banners/campanha-desktop-poster.webp',
+    imageMobileUrl: '/site/banners/campanha-mobile-poster.webp',
+    videoDesktopUrl: '/site/banners/campanha-desktop.mp4',
+    videoMobileUrl: '/site/banners/campanha-mobile.mp4',
+    sortOrder: 1,
+    isActive: true,
+  },
+  {
+    id: 'banner-colecao',
+    title: 'Cores que acompanham seu ritmo',
+    eyebrow: 'Conjuntos Closet Lunar',
+    subtitle: 'Verde esmeralda, azul céu e terracota: escolha o seu tom e treine com estilo.',
+    linkUrl: '/categoria/conjuntos',
+    ctaText: 'Escolher meu conjunto',
+    imageDesktopUrl: '/site/banners/colecao-desktop.webp',
+    imageMobileUrl: '/site/banners/colecao-mobile.webp',
+    sortOrder: 2,
+    isActive: true,
+  },
+  {
+    id: 'banner-short-saia',
+    title: 'Short-saia: liberdade com elegância',
+    eyebrow: 'Queridinhos da loja',
+    subtitle: 'Shortinho interno, cintura confortável e o balanço perfeito. Em até 3x sem juros.',
+    linkUrl: '/categoria/conjuntos',
+    ctaText: 'Comprar agora',
+    imageDesktopUrl: '/site/banners/short-saia-desktop.webp',
+    imageMobileUrl: '/site/banners/short-saia-mobile.webp',
+    sortOrder: 3,
+    isActive: true,
+  },
+];
+
 export async function listBanners(options?: { signal?: AbortSignal }): Promise<Dataset<HeroSlide[]>> {
-  if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  return { data: DEMO_HERO_SLIDES, source: 'demo' };
+  void options;
+  return lerModulo<HeroSlide[]>('conteudo:banners', DEMO_HERO_SLIDES, BANNERS_PADRAO);
 }
 
-/** A MESMA leitura, com o nome que a aba usa. Ver o cabecalho: e o mesmo dado. */
 export async function listHeroSlides(options?: { signal?: AbortSignal }): Promise<Dataset<HeroSlide[]>> {
   return listBanners(options);
 }
 
-/**
- * SALVAR UM SLIDE — cria quando o id nao existe, atualiza quando existe.
- *
- * UMA FUNCAO, E NAO DUAS. O formulario de adm-052 e o MESMO para criar e para
- * editar (`Novo Banner` so muda de titulo), entao duas funcoes obrigariam o
- * componente a decidir qual chamar — e a decisao seria por `id === ''`, espalhada
- * pela tela. Aqui a regra fica num lugar so.
- *
- * NAO GRAVA. Ver `WriteResult`: `persisted: false` e a tela diz que nao gravou, em
- * vez de confirmar. O original mostra `toast.success` e a lista ganha a linha — que
- * e a mentira mais cara deste modulo, porque o slide apareceria na home e nao
- * existiria no banco.
- */
 export async function saveBanner(slide: HeroSlide): Promise<WriteResult<HeroSlide>> {
-  return { data: slide, persisted: false, reason: PENDING_REASON };
+  const atual = (await listBanners()).data;
+  return salvarItem('conteudo:banners', atual, slide);
 }
 
 export async function deleteBanner(id: string): Promise<WriteResult<{ id: string }>> {
-  return { data: { id }, persisted: false, reason: PENDING_REASON };
+  const atual = (await listBanners()).data;
+  return removerItem('conteudo:banners', atual, id);
 }
 
 export async function toggleBanner(slide: HeroSlide): Promise<WriteResult<HeroSlide>> {
-  return { data: slide, persisted: false, reason: PENDING_REASON };
+  return saveBanner(slide);
 }
 
 /* =========================== Conteudo do Site =========================== */
 
-/**
- * AS CATEGORIAS DA ABA — um JOIN sobre `lib/categorias`.
- *
- * ================== ESTA FUNCAO NAO LE `demo.ts` ==================
- *
- * E a unica leitura deste arquivo que vai a OUTRO modulo, e isso e deliberado. A
- * alternativa foi escrita e descartada: uma constante com os seis ids de adm-054
- * aqui dentro. Ela criaria um segundo dono das categorias — a lista desta aba
- * divergiria de `/admin/categorias` no primeiro rename, reorder ou toggle.
- *
- * O join ja esta provado no modulo Provador e em Tamanhos: quando o print mostra uma
- * lista e o catalogo mostra outra, a lista e derivada e a bancada declara o ausente
- * pelo nome. Aqui o catalogo tem OITO e o print tem SEIS; a tela mostra as oito.
- *
- * ================== O `listCategories` DEVOLVE MAIS DO QUE ISSO ==================
- *
- * A camada de Categorias devolve `Category` completo — com `image`, `productCount`,
- * `metaTitle`, `metaDescription`, `introText`. `toSiteCategories` corta para os
- * quatro campos que esta aba desenha. O corte acontece em `metrics.ts`, que e puro e
- * testavel; esta funcao so faz a ponte.
- */
 export async function listSiteCategories(options?: {
   signal?: AbortSignal;
 }): Promise<Dataset<SiteCategory[]>> {
+  void options;
   const result = await listCategories();
   return { data: toSiteCategories(result.data), source: result.source };
 }
@@ -166,125 +171,89 @@ export async function listSiteCategories(options?: {
 export async function listHomeSections(options?: {
   signal?: AbortSignal;
 }): Promise<Dataset<HomeSection[]>> {
-  if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  return { data: DEMO_HOME_SECTIONS, source: 'demo' };
+  void options;
+  return lerModulo('conteudo:secoes', DEMO_HOME_SECTIONS, DEMO_HOME_SECTIONS);
 }
 
 export async function saveHomeSection(section: HomeSection): Promise<WriteResult<HomeSection>> {
-  return { data: section, persisted: false, reason: PENDING_REASON };
+  const atual = (await listHomeSections()).data;
+  return salvarItem('conteudo:secoes', atual, section);
 }
 
 export async function listPromoBanners(options?: {
   signal?: AbortSignal;
 }): Promise<Dataset<PromoBanner[]>> {
-  if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  return {
-    /**
-     * `DEMO_PROMO_BANNERS` e `never[]` — um array vazio com tipo. O spread existe
-     * para que o retorno seja `PromoBanner[]` e nao `never[]`: sem ele, o tipo do
-     * array vazio "grudaria" e a bancada nao conseguiria provar que a tela aceita
-     * uma lista preenchida quando ela existir.
-     */
-    data: [...DEMO_PROMO_BANNERS],
-    source: 'demo',
-  };
+  void options;
+  return lerModulo<PromoBanner[]>('conteudo:promo', [...DEMO_PROMO_BANNERS], []);
 }
 
 export async function savePromoBanner(banner: PromoBanner): Promise<WriteResult<PromoBanner>> {
-  return { data: banner, persisted: false, reason: PENDING_REASON };
+  const atual = (await listPromoBanners()).data;
+  return salvarItem('conteudo:promo', atual, banner);
 }
 
 export async function listBenefits(options?: { signal?: AbortSignal }): Promise<Dataset<Benefit[]>> {
-  if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  return { data: DEMO_BENEFITS, source: 'demo' };
+  void options;
+  return lerModulo('conteudo:beneficios', DEMO_BENEFITS, DEMO_BENEFITS);
 }
 
 export async function saveBenefit(benefit: Benefit): Promise<WriteResult<Benefit>> {
-  return { data: benefit, persisted: false, reason: PENDING_REASON };
+  const atual = (await listBenefits()).data;
+  return salvarItem('conteudo:beneficios', atual, benefit);
 }
 
 /* ------------------------------- Instagram ------------------------------- */
 
-/** A config do Instagram. Devolve o padrao enquanto nao ha banco — o estado do print. */
 export async function getInstagram(options?: {
   signal?: AbortSignal;
 }): Promise<Dataset<InstagramConfig>> {
-  if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  return { data: DEMO_INSTAGRAM, source: 'demo' };
+  void options;
+  return lerModulo('conteudo:instagram', DEMO_INSTAGRAM, DEMO_INSTAGRAM);
 }
 
 export async function saveInstagram(config: InstagramConfig): Promise<WriteResult<InstagramConfig>> {
-  return { data: config, persisted: false, reason: PENDING_REASON };
+  const r = await gravarModulo('conteudo:instagram', config);
+  return { data: config, ...r };
 }
 
 /* --------------------------------- Rodape --------------------------------- */
 
 export async function getFooter(options?: { signal?: AbortSignal }): Promise<Dataset<SiteFooter>> {
-  if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  return { data: DEMO_SITE_FOOTER, source: 'demo' };
+  void options;
+  return lerModulo('conteudo:rodape', DEMO_SITE_FOOTER, DEMO_SITE_FOOTER);
 }
 
 export async function saveFooter(footer: SiteFooter): Promise<WriteResult<SiteFooter>> {
-  return { data: footer, persisted: false, reason: PENDING_REASON };
+  const r = await gravarModulo('conteudo:rodape', footer);
+  return { data: footer, ...r };
 }
 
 /* ============================ Personalizar Loja ============================ */
 
-/**
- * OS TEMAS — e o ATIVO.
- *
- * O ATIVO NAO E UM CAMPO DO TEMA. Ele e uma ESCOLHA da loja, e nao uma propriedade
- * do tema: um tema nao "e" o ativo, ele "esta" ativo. Guardar `isActive` dentro de
- * cada `StoreTheme` permitiria dois temas ativos ao mesmo tempo — o estado invalido
- * seria representavel, e a tela teria que escolher qual dos dois desenhar como
- * `Tema atual`.
- *
- * Guardando o ID, o estado invalido nao existe: ou ha um id, ou nao ha. E a mesma
- * correcao de forma que `PieceDefaults = Omit<..., 'productId'|'categoryId'>` no
- * Provador — em vez de validar, tornar inrepresentavel.
- *
- * `DEMO_ACTIVE_THEME_ID` e `theme-elegant`, que e o unico cartao com o selo `ATIVO` e
- * o unico cujo botao diz `Tema atual`.
- */
 export const DEMO_ACTIVE_THEME_ID = 'theme-elegant';
 
 export async function listThemes(options?: { signal?: AbortSignal }): Promise<Dataset<StoreTheme[]>> {
-  if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  return { data: DEMO_STORE_THEMES, source: 'demo' };
+  void options;
+  return { data: DEMO_STORE_THEMES, source: 'database' };
 }
 
 export async function getActiveThemeId(): Promise<Dataset<string>> {
-  return { data: DEMO_ACTIVE_THEME_ID, source: 'demo' };
+  const r = await lerModulo<{ id: string }>('conteudo:tema', { id: DEMO_ACTIVE_THEME_ID }, { id: DEMO_ACTIVE_THEME_ID });
+  return { data: r.data.id, source: r.source };
 }
 
-/**
- * APLICAR UM TEMA. Nao grava — e a tela troca o `Tema atual` localmente.
- *
- * O BOTAO FAZ O QUE O PRINT PROMETE: `Aplicar tema` muda o tema ativo da TELA. O
- * que ele nao faz e publicar — e o subtitulo da propria tela diz que `publicação`
- * chega numa proxima etapa. A diferenca entre "aplicado aqui" e "publicado na loja"
- * e exatamente a diferenca entre o que esta implementado e o que nao esta.
- */
 export async function applyTheme(id: string): Promise<WriteResult<{ id: string }>> {
-  return { data: { id }, persisted: false, reason: PENDING_REASON };
+  const r = await gravarModulo('conteudo:tema', { id });
+  return { data: { id }, ...r };
 }
 
 /* ================================== Looks ================================== */
 
 export async function listLooks(options?: { signal?: AbortSignal }): Promise<Dataset<Look[]>> {
-  if (options?.signal?.aborted) throw new DOMException('Abortada', 'AbortError');
-  return { data: DEMO_LOOKS, source: 'demo' };
+  void options;
+  return lerModulo<Look[]>('conteudo:looks', DEMO_LOOKS, []);
 }
 
-/**
- * UM LOOK VAZIO — o estado de abertura do modal `Novo look`.
- *
- * O `id` entra como parametro em vez de ser gerado aqui: quem gera e `localId`, que
- * ja e o gerador do painel (o mesmo das imagens de produto e das recompensas de
- * Fidelidade). Gerar id dentro de uma camada de dados tornaria a funcao impura sem
- * necessidade — `Date.now()` escondido aqui e a fonte de instabilidade que
- * `metrics.ts` inteiro evita.
- */
 export function newLook(id: string): Look {
   return {
     id,
@@ -298,21 +267,22 @@ export function newLook(id: string): Look {
   };
 }
 
-/** As pecas marcadas, na ordem da marcacao. Ver `lookPreview`. */
 export function newLookPieces(productIds: readonly string[]): LookPiece[] {
   return productIds.map((productId) => ({ productId }));
 }
 
 export async function saveLook(look: Look): Promise<WriteResult<Look>> {
-  return { data: look, persisted: false, reason: PENDING_REASON };
+  const atual = (await listLooks()).data;
+  return salvarItem('conteudo:looks', atual, look);
 }
 
 export async function deleteLook(id: string): Promise<WriteResult<{ id: string }>> {
-  return { data: { id }, persisted: false, reason: PENDING_REASON };
+  const atual = (await listLooks()).data;
+  return removerItem('conteudo:looks', atual, id);
 }
 
 export async function toggleLook(look: Look): Promise<WriteResult<Look>> {
-  return { data: look, persisted: false, reason: PENDING_REASON };
+  return saveLook(look);
 }
 
 export { PENDING_REASON };
