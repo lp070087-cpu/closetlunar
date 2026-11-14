@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircle2, Clock, Loader2, XCircle } from 'lucide-react';
 import { useSacola } from '@/lib/site/carrinho';
 import { formatBRL } from '@/lib/utils';
-import { useStoreWhatsApp, whatsappLinkFor } from '@/lib/site/whatsapp';
+import { mensagemDoGatilho, useContatoLoja, whatsappLinkFor } from '@/lib/site/whatsapp';
 
 interface Estado {
   ok: boolean;
@@ -93,8 +93,12 @@ export function StatusPagamento({
     }
   }, [estado?.pago, sacola, pedidoId]);
 
-  const telLoja = useStoreWhatsApp();
-  const wa = whatsappLinkFor(telLoja, `Olá! Tenho uma dúvida sobre o pedido #${estado?.code ?? ''}.`) ?? null;
+  const contato = useContatoLoja();
+  const wa =
+    whatsappLinkFor(
+      contato.telefone,
+      mensagemDoGatilho(contato.modelos, 'order_query', 'Olá! Vim pelo site da Closet Lunar e gostaria de falar sobre meu pedido.', { pedido: estado?.code }),
+    ) ?? null;
 
   if (estado && estado.ok === false) {
     return (

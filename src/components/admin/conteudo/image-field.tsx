@@ -35,6 +35,8 @@ import { cn } from '@/lib/utils';
  * em Produtos e Categorias. O ponto de troca, quando o storage existir, e `readAsDataUrl`.
  */
 
+import { enviarImagem } from '@/lib/site/upload';
+
 const ACCEPTED = ['image/png', 'image/jpeg', 'image/webp'];
 const MAX_BYTES = 4 * 1024 * 1024;
 
@@ -75,9 +77,9 @@ export function ImageDropField({
       return;
     }
     try {
-      onChange(await readAsDataUrl(file));
+      onChange(await enviarImagem(file).catch(() => readAsDataUrl(file)));
     } catch {
-      onError('Falha ao ler o arquivo.');
+      onError('Não foi possível enviar a imagem.');
     }
   }
 

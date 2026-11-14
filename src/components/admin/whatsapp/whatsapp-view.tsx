@@ -66,7 +66,7 @@ export function WhatsAppView() {
       setAviso(
       resultado.persisted
         ? 'Configurações salvas!'
-        : 'Configurações não foram gravadas: o banco (Neon) ainda não está conectado.',
+        : 'Não foi possível salvar agora. Tente novamente.',
     );
     } catch {
       setAviso('Não foi possível salvar. Nenhuma alteração foi confirmada.');
@@ -85,7 +85,7 @@ export function WhatsAppView() {
         action={<WhatsAppTabs value={tab} onChange={setTab} />}
       />
 
-      <p className="rounded-xl border border-border bg-secondary/30 p-3 text-xs text-muted-foreground">Demonstração: configurações não persistem e mensagens automáticas não são enviadas.</p>
+      <p className="rounded-xl border border-border bg-secondary/30 p-3 text-xs text-muted-foreground">Salvo no banco. O número e as mensagens abaixo são os que o site usa nos botões de WhatsApp (produto, pedido e atendimento). Envio automático sem clique exige a API oficial do WhatsApp Business.</p>
       {erro ? <p role="alert" className="text-sm text-danger">{erro}</p> : carregando ? (
         <p className="text-sm text-muted-foreground">Carregando...</p>
       ) : tab === 'tickets' ? (

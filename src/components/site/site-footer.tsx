@@ -31,11 +31,11 @@ import { getFooter } from '@/lib/conteudo/data';
 
 /** Os cinco departamentos do print — todos apontam para a categoria deles. */
 const DEPARTAMENTOS = [
+  { label: 'Novidades', href: '/categoria/novidades' },
   { label: 'Conjuntos', href: '/categoria/conjuntos' },
-  { label: 'Leggings', href: '/categoria/leggings' },
-  { label: 'Tops', href: '/categoria/tops' },
-  { label: 'Shorts', href: '/categoria/shorts' },
-  { label: 'Streetwear', href: '/categoria/streetwear' },
+  { label: 'Short-Saia', href: '/categoria/short-saia' },
+  { label: 'Calça Flare', href: '/categoria/calca-flare' },
+  { label: 'Todos os produtos', href: '/buscar' },
 ] as const;
 
 /**

@@ -6,7 +6,7 @@ import { StoreFooter } from '@/components/cliente/store-footer';
 import { usuarioAtual } from '@/lib/auth/acoes';
 import { temBanco } from '@/lib/db';
 
-export const metadata = { title: 'Entrar' };
+export const metadata = { title: 'Entrar', robots: { index: false, follow: false } };
 
 /** Fora dos layouts protegidos: o redirecionamento nunca retorna ao proprio portao. */
 export default async function EntrarPage({ searchParams }: { searchParams: Promise<{ area?: string }> }) {

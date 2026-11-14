@@ -72,11 +72,10 @@ const RECADOS = [
 const MENU = [
   { label: 'Início', href: '/' },
   { label: 'Novidades', href: '/categoria/novidades' },
-  { label: 'Tops', href: '/categoria/tops' },
-  { label: 'Shorts', href: '/categoria/shorts' },
-  { label: 'Leggings', href: '/categoria/leggings' },
-  { label: 'Macaquinhos', href: '/categoria/macaquinhos' },
   { label: 'Conjuntos', href: '/categoria/conjuntos' },
+  { label: 'Short-Saia', href: '/categoria/short-saia' },
+  { label: 'Calça Flare', href: '/categoria/calca-flare' },
+  { label: 'Todos os produtos', href: '/buscar' },
 ] as const;
 
 export function SiteHeader({ cartHref }: { cartHref?: string } = {}) {

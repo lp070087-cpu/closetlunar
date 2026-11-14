@@ -205,6 +205,12 @@ async function cotarMelhorEnvio(entrada: {
       })
       .sort((a: OpcaoFrete, b: OpcaoFrete) => a.preco - b.preco);
 
+    // No maximo 5 opcoes: as 4 mais baratas + a mais rapida (se ja nao estiver).
+    if (opcoes.length > 5) {
+      const baratas = opcoes.slice(0, 4);
+      const rapida = [...opcoes].sort((x, y) => x.prazoMax - y.prazoMax || x.preco - y.preco)[0];
+      opcoes = baratas.some((o) => o.id === rapida.id) ? opcoes.slice(0, 5) : [...baratas, rapida];
+    }
     if (regras.freteGratisAcima > 0 && subtotal >= regras.freteGratisAcima && opcoes.length) {
       opcoes = opcoes.map((o, i) => (i === 0 ? { ...o, preco: 0, gratis: true } : o));
     }

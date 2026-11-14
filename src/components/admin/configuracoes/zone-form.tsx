@@ -1,5 +1,6 @@
 'use client';
 
+import { mascaraMoeda } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox, Field, FieldGrid, Input } from '@/components/ui/form';
@@ -131,11 +132,11 @@ export function ZoneForm({
         </Field>
 
         <FieldGrid columns={2}>
-          <Field label="Valor" hint="Em reais. Aceita 25, 25,50 e 25.50.">
+          <Field label="Valor" hint="Digite só os números: 2500 vira 25,00.">
             <Input
               inputMode="decimal"
               value={local.price}
-              onChange={(event) => setLocal({ ...local, price: event.target.value })}
+              onChange={(event) => setLocal({ ...local, price: mascaraMoeda(event.target.value) })}
               placeholder="25,00"
             />
           </Field>

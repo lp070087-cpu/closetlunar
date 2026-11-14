@@ -17,6 +17,7 @@ import { exigirPapel } from '@/lib/auth/guardas';
  * monta texto.
  */
 export const metadata = {
+  robots: { index: false, follow: false },
   title: 'Minha Conta',
 };
 

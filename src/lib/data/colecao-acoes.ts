@@ -29,13 +29,13 @@ const PUBLICAS = new Set([
   'fidelidade:regras',
   'fidelidade:recompensas',
   'fidelidade:niveis',
+  'whatsapp:config',
 ]);
 
 const PRIVADAS = new Set([
   'afiliadas:lista',
   'campanhas:lista',
   'atendimento:tickets',
-  'whatsapp:config',
   'emails:modelos',
   'emails:identidade',
   'seguranca:backups',

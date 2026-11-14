@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { MessageCircle } from 'lucide-react';
 import { BotaoFavorito } from './botao-favorito';
-import { useStoreWhatsApp, whatsappLinkFor } from '@/lib/site/whatsapp';
+import { mensagemDoGatilho, useContatoLoja, whatsappLinkFor } from '@/lib/site/whatsapp';
 import { BotaoComprar } from './botao-comprar';
 import { effectivePrice, discountPercent, strikethroughPrice } from '@/lib/produtos/metrics';
 import type { Product } from '@/lib/produtos/types';
@@ -22,7 +22,8 @@ export const PARCELAS_SEM_JUROS = 3;
  * As contas de preco/desconto vem de `lib/produtos/metrics` (as mesmas do admin).
  */
 export function ProductCard({ product }: { product: Product }) {
-  const whatsapp = useStoreWhatsApp();
+  const contato = useContatoLoja();
+  const whatsapp = contato.telefone;
   const preco = effectivePrice(product);
   const riscado = strikethroughPrice(product);
   const temDesconto = riscado !== null && riscado > preco;
@@ -144,7 +145,7 @@ export function ProductCard({ product }: { product: Product }) {
         <div className="mt-auto flex min-w-0 flex-col gap-1.5 pt-3 md:gap-2">
           <BotaoComprar product={product} className="w-full" />
           <a
-            href={linkDuvida(product, whatsapp)}
+            href={whatsappLinkFor(whatsapp, mensagemDoGatilho(contato.modelos, 'product_query', 'Olá! Vim pelo site da Closet Lunar e tenho uma dúvida sobre este produto.', { produto: product.name }))}
             aria-disabled={!whatsapp}
             target="_blank"
             rel="noopener noreferrer"
@@ -162,6 +163,3 @@ export function ProductCard({ product }: { product: Product }) {
   );
 }
 
-function linkDuvida(product: Product, phone: string): string | undefined {
-  return whatsappLinkFor(phone, `Olá! Gostaria de tirar uma dúvida sobre o produto ${product.name}.`);
-}

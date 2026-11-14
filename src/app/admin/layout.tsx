@@ -12,6 +12,7 @@ import { usuarioAtual } from '@/lib/auth/acoes';
  */
 
 export const metadata = {
+  robots: { index: false, follow: false },
   title: 'Painel Administrativo',
 };
 

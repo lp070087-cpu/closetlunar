@@ -87,3 +87,12 @@ export interface SelectOption<T extends string = string> {
   value: T;
   label: string;
 }
+
+/**
+ * Mascara de moeda "maquininha": os digitos entram pela direita.
+ * "2" -> "0,02", "25" -> "0,25", "2500" -> "25,00". Vazio quando nao ha digitos.
+ */
+export function mascaraMoeda(digitado: string): string {
+  const d = digitado.replace(/\D/g, '').replace(/^0+/, '').slice(0, 9);
+  return d ? (Number(d) / 100).toFixed(2).replace('.', ',') : '';
+}

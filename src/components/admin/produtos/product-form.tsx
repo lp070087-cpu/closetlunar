@@ -45,14 +45,24 @@ function MoneyInput({
   placeholder?: string;
   disabled?: boolean;
 }) {
+  /*
+    Mascara de moeda estilo maquininha: os digitos entram da direita.
+    Digitar 2-2-9-9-0 mostra R$ 0,02 → R$ 0,22 → R$ 2,29 → R$ 22,99 → R$ 229,90.
+    O valor guardado continua no formato do formulario ("229.90").
+  */
+  const numero = Number(String(value).replace(',', '.'));
+  const exibido = value !== '' && Number.isFinite(numero) && numero > 0 ? formatBRL(numero) : '';
   return (
     <Input
-      inputMode="decimal"
-      value={value}
+      inputMode="numeric"
+      value={exibido}
       disabled={disabled}
       placeholder={placeholder}
-      onChange={(event) => onChange(event.target.value.replace(/[^\d.,-]/g, ''))}
-      className="h-11 font-medium tabular-nums"
+      onChange={(event) => {
+        const digitos = event.target.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 9);
+        onChange(digitos ? (Number(digitos) / 100).toFixed(2) : '');
+      }}
+      className="h-11 text-right font-medium tabular-nums"
     />
   );
 }
@@ -195,7 +205,7 @@ export function ProductForm({
         {/* VALORES — 5 colunas no desktop, 2 no mobile (o print e uma fileira) */}
         <fieldset className="space-y-3">
           <legend className="label-caps">Valores</legend>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 items-start gap-x-4 gap-y-5 sm:grid-cols-3 [&_label]:flex [&_label]:min-h-[1.25rem] [&_label]:items-end [&_label]:whitespace-nowrap">
             <Field label="Preço de Venda" hint="Valor que a cliente paga">
               <MoneyInput value={draft.price} onChange={(value) => set('price', value)} />
             </Field>

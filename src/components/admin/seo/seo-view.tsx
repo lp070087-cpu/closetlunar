@@ -5,7 +5,8 @@ import { Check } from 'lucide-react';
 import { SectionHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getSeoConfig, saveSeoConfig } from '@/lib/seo/data';
-import { applySeoChange, ogImageFromFile } from '@/lib/seo/metrics';
+import { applySeoChange } from '@/lib/seo/metrics';
+import { enviarImagem } from '@/lib/site/upload';
 import type { SeoConfig } from '@/lib/seo/types';
 import { GooglePanel, MetaTagsPanel, OpenGraphPanel, SeoTechnicalCard } from './seo-panels';
 
@@ -50,10 +51,16 @@ export function SeoView() {
     inputArquivo.current?.click();
   }
 
-  function receberArquivo(escolhido: string | null) {
-    const valor = ogImageFromFile(escolhido);
-    if (valor === null || config === null) return;
-    setConfig(applySeoChange(config, 'ogImageUpload', valor));
+  async function receberArquivo(arquivo: File | null) {
+    if (!arquivo || config === null) return;
+    try {
+      setAviso('Enviando imagem…');
+      const url = await enviarImagem(arquivo);
+      setConfig((c) => (c ? applySeoChange(applySeoChange(c, 'ogImageUpload', url), 'ogImageUrl', url) : c));
+      setAviso('Imagem enviada. Clique em Salvar SEO.');
+    } catch (e) {
+      setAviso((e as Error).message);
+    }
   }
 
   function salvar() {
@@ -87,10 +94,10 @@ export function SeoView() {
       <input
         ref={inputArquivo}
         type="file"
-        accept="image/*"
+        accept="image/png,image/jpeg,image/webp"
         className="hidden"
         onChange={(event) => {
-          receberArquivo(event.target.files?.[0]?.name ?? null);
+          void receberArquivo(event.target.files?.[0] ?? null);
           event.target.value = '';
         }}
       />

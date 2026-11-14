@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import { Cormorant_Garamond, Inter } from 'next/font/google';
+import Script from 'next/script';
 import './globals.css';
+import { getSeoConfig } from '@/lib/seo/data';
+import type { SeoConfig } from '@/lib/seo/types';
 
 /**
  * Tipografia da marca: serifada elegante para titulos e numeros, sans neutra
@@ -21,15 +24,35 @@ const sans = Inter({
   variable: '--font-sans',
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: 'Closet Lunna',
-    template: '%s · Closet Lunna',
-  },
-  description:
-    'Closet Lunna — moda fitness feminina. Loja online, área da cliente e painel administrativo.',
-  robots: { index: false, follow: false },
-};
+const SITE = process.env.NEXT_PUBLIC_APP_URL || 'https://closetlunar.vercel.app';
+
+/** Metadados globais vindos de Admin → SEO & Google (com padrao da loja). */
+export async function generateMetadata(): Promise<Metadata> {
+  const { data: seo } = await getSeoConfig().catch(() => ({ data: null as SeoConfig | null }));
+  const titulo = seo?.seoTitle || 'Closet Lunar — Moda Fitness Feminina';
+  const descricao =
+    seo?.seoDescription ||
+    'Conjuntos fitness, tops, short-saia e calças flare. Compre no Pix ou em 3x sem juros.';
+  const imagem = seo?.ogImageUpload || seo?.ogImageUrl || `${SITE}/site/og-closet-lunar.jpg`;
+  return {
+    metadataBase: new URL(SITE),
+    title: { default: titulo, template: '%s · Closet Lunar' },
+    description: descricao,
+    keywords: seo?.seoKeywords ? seo.seoKeywords.split(',').map((k) => k.trim()).filter(Boolean) : undefined,
+    robots: { index: true, follow: true },
+    openGraph: {
+      type: 'website',
+      locale: 'pt_BR',
+      siteName: 'Closet Lunar',
+      title: titulo,
+      description: descricao,
+      images: [{ url: imagem, width: 1200, height: 630, alt: 'Closet Lunar — moda fitness feminina' }],
+    },
+    twitter: { card: 'summary_large_image', title: titulo, description: descricao, images: [imagem] },
+    verification: seo?.gscVerification ? { google: seo.gscVerification } : undefined,
+    alternates: { canonical: '/' },
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: '#F7EDE2',
@@ -39,10 +62,28 @@ export const viewport: Viewport = {
   maximumScale: 5,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const { data: seo } = await getSeoConfig().catch(() => ({ data: null as SeoConfig | null }));
+  const ga = /^G-[A-Z0-9]+$/.test(seo?.gaId ?? '') ? seo!.gaId : '';
+  const gtm = /^GTM-[A-Z0-9]+$/.test(seo?.gtmId ?? '') ? seo!.gtmId : '';
   return (
     <html lang="pt-BR" className={`${serif.variable} ${sans.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        {ga ? (
+          <>
+            <Script src={`https://www.googletagmanager.com/gtag/js?id=${ga}`} strategy="afterInteractive" />
+            <Script id="ga4" strategy="afterInteractive">
+              {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${ga}');`}
+            </Script>
+          </>
+        ) : null}
+        {gtm ? (
+          <Script id="gtm" strategy="afterInteractive">
+            {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${gtm}');`}
+          </Script>
+        ) : null}
+      </body>
     </html>
   );
 }

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox, Input, Textarea } from '@/components/ui/form';
 import { Modal } from '@/components/ui/modal';
 import { cn } from '@/lib/utils';
+import { enviarImagem } from '@/lib/site/upload';
 import { formatBRL, lookPreview, lookPreviewName } from '@/lib/conteudo/metrics';
 import { toggleLookPiece } from '@/lib/conteudo/form';
 import { LOOK_PIECES_LABEL } from '@/lib/conteudo/demo';
@@ -95,11 +96,13 @@ export function LookModal({
       setFileError('A imagem passa de 4 MB.');
       return;
     }
-    setFileError('');
-    const reader = new FileReader();
-    reader.onload = () => onDraftChange({ ...draft, coverUrl: String(reader.result) });
-    reader.onerror = () => setFileError('Falha ao ler o arquivo.');
-    reader.readAsDataURL(file);
+    setFileError('Enviando…');
+    enviarImagem(file)
+      .then((url) => {
+        onDraftChange({ ...draft, coverUrl: url });
+        setFileError('');
+      })
+      .catch((e: Error) => setFileError(e.message));
   }
 
   const footer = (

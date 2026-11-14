@@ -1,5 +1,6 @@
 'use client';
 
+import { mascaraMoeda } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import {
@@ -225,7 +226,7 @@ export function MelhorEnvioConfig() {
           </label>
           <label>
             <span className={rotulo}>Frete grátis acima de (R$)</span>
-            <input className={campo} inputMode="decimal" value={f.freteGratisAcima} onChange={num('freteGratisAcima')} />
+            <input className={campo} inputMode="numeric" value={f.freteGratisAcima ? f.freteGratisAcima.toFixed(2).replace('.', ',') : ''} onChange={(e) => setF((x) => ({ ...x, freteGratisAcima: Number(mascaraMoeda(e.target.value).replace(',', '.')) || 0 }))} />
           </label>
           <label>
             <span className={rotulo}>Dias de manuseio</span>
@@ -257,7 +258,7 @@ export function MelhorEnvioConfig() {
         <div className="grid gap-4 sm:grid-cols-2">
           <label>
             <span className="text-[11px] text-muted-foreground">Valor (R$) — 0 desliga</span>
-            <input className={campo} inputMode="decimal" value={f.freteFixo} onChange={num('freteFixo')} />
+            <input className={campo} inputMode="numeric" value={f.freteFixo ? f.freteFixo.toFixed(2).replace('.', ',') : ''} onChange={(e) => setF((x) => ({ ...x, freteFixo: Number(mascaraMoeda(e.target.value).replace(',', '.')) || 0 }))} />
           </label>
           <label>
             <span className="text-[11px] text-muted-foreground">Prazo máximo (dias úteis)</span>

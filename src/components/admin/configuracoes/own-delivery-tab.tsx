@@ -1,5 +1,6 @@
 'use client';
 
+import { mascaraMoeda } from '@/lib/utils';
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import {
@@ -214,7 +215,7 @@ export function OwnDeliveryTab({
                                     inputMode="decimal"
                                     aria-label={`Valor da entrega para ${neighborhoodLabel(zona.neighborhood)}`}
                                     value={bruto}
-                                    onChange={(event) => mudar(zona.id, event.target.value)}
+                                    onChange={(event) => mudar(zona.id, mascaraMoeda(event.target.value))}
                                     className={cn(
                                       'focus-ring w-24 rounded-lg border px-2 py-1 text-right text-sm tabular-nums',
                                       sujo ? 'border-success bg-success-surface' : 'border-border',

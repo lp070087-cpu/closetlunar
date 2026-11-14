@@ -8,6 +8,8 @@ import { SegmentedTabs } from '@/components/ui/tabs';
 import { AvatarPreview } from './avatar-preview';
 import { PieceWorkspace } from './piece-workspace';
 import { shortUrl } from '@/lib/provador/metrics';
+import { saveAvatar } from '@/lib/provador/data';
+import { ACCEPT_IMAGEM, enviarImagem } from '@/lib/site/upload';
 import type { Category, Product } from '@/lib/produtos/types';
 import type { AvatarSettings, PieceDefaults, PiecePosition } from '@/lib/provador/types';
 
@@ -51,7 +53,36 @@ export function AvatarView({
   positionOptions: { value: PiecePosition; label: string }[];
 }) {
   const [aba, setAba] = useState<Aba>('imagens');
-  const pendentes = avatar.slots.filter((slot) => !slot.url?.trim()).length;
+  const [av, setAv] = useState<AvatarSettings>(avatar);
+  const [enviando, setEnviando] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const pendentes = av.slots.filter((slot) => !slot.url?.trim()).length;
+
+  async function trocarSlot(key: string, url: string | null) {
+    const novo = { ...av, slots: av.slots.map((s) => (s.key === key ? { ...s, url } : s)) };
+    setAv(novo);
+    const r = await saveAvatar(novo);
+    setMsg(r.persisted ? (url ? 'Imagem do avatar salva.' : 'Imagem removida.') : r.reason ?? 'Não foi possível salvar.');
+  }
+
+  function escolherArquivo(key: string) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = ACCEPT_IMAGEM;
+    input.onchange = async () => {
+      const f = input.files?.[0];
+      if (!f) return;
+      setEnviando(key);
+      try {
+        await trocarSlot(key, await enviarImagem(f));
+      } catch (e) {
+        setMsg((e as Error).message);
+      } finally {
+        setEnviando(null);
+      }
+    };
+    input.click();
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -81,7 +112,8 @@ export function AvatarView({
             </header>
 
             <ul className="flex flex-col gap-3">
-              {avatar.slots.map((slot) => (
+              {msg ? <p role="status" className="rounded-xl bg-secondary/50 p-3 text-xs">{msg}</p> : null}
+              {av.slots.map((slot) => (
                 <li
                   key={slot.key}
                   className="flex flex-wrap items-center gap-4 rounded-2xl border border-border/70 bg-background px-4 py-3"
@@ -115,20 +147,16 @@ export function AvatarView({
                    * envia nada seria pior que um botao apagado. O `title` diz por
                    * que, em vez de deixar a pessoa clicando no escuro.
                    */}
-                  <Button
-                    size="sm"
-                    disabled
-                    title="Depende do storage, que ainda não está conectado nesta fase."
-                  >
-                    Substituir
+                  <Button size="sm" disabled={enviando === slot.key} onClick={() => escolherArquivo(slot.key)}>
+                    {enviando === slot.key ? 'Enviando…' : slot.url ? 'Substituir' : 'Enviar PNG'}
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
-                    disabled
+                    disabled={!slot.url}
+                    onClick={() => void trocarSlot(slot.key, null)}
                     aria-label={`Remover ${slot.label}`}
                     className="text-danger"
-                    title="Depende do storage, que ainda não está conectado nesta fase."
                   >
                     <Trash2 className="size-4" aria-hidden />
                   </Button>
@@ -165,7 +193,7 @@ export function AvatarView({
               {pendentes > 0 ? (
                 <span className="inline-flex items-center gap-2 text-[11px] font-medium text-warning-foreground">
                   <CircleAlert className="size-3.5 shrink-0" aria-hidden />
-                  {pendentes} de {avatar.slots.length} imagens pendentes
+                  {pendentes} de {av.slots.length} imagens pendentes
                 </span>
               ) : (
                 <span className="text-[11px] font-medium text-muted-foreground">
@@ -188,7 +216,7 @@ export function AvatarView({
             </div>
           </Card>
 
-          <AvatarPreview avatar={avatar} />
+          <AvatarPreview avatar={av} />
         </div>
       ) : (
         <PieceWorkspace

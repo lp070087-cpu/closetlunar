@@ -33,6 +33,8 @@ import type { Category, CategoryDraft, CategoryFieldErrors } from '@/lib/categor
  * pelo schema. Recolhidos por padrao, e com o aviso de que nao estao no print.
  */
 
+import { enviarImagem } from '@/lib/site/upload';
+
 const ACCEPTED = ['image/png', 'image/jpeg', 'image/webp'];
 const MAX_BYTES = 4 * 1024 * 1024;
 
@@ -89,10 +91,10 @@ export function CategoryForm({
       return;
     }
     try {
-      const url = await readFileAsDataUrl(file);
+      const url = await enviarImagem(file).catch(() => readFileAsDataUrl(file));
       set('imageUrl', url);
     } catch {
-      setFileError('Não foi possível ler o arquivo.');
+      setFileError('Não foi possível enviar a imagem.');
     }
   }
 

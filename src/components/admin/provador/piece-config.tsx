@@ -4,6 +4,8 @@ import { ArrowLeft, ImagePlus, Trash2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Field, Input, Select } from '@/components/ui/form';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
+import { ACCEPT_IMAGEM, enviarImagem } from '@/lib/site/upload';
 import {
   PIECE_PENDING_LABEL,
   PIECE_SECTION_DESCRIPTION,
@@ -191,6 +193,8 @@ function ViewSlot({
   onChange: (url: string) => void;
 }) {
   const preenchida = url.trim().length > 0;
+  const [enviando, setEnviando] = useState(false);
+  const [erroEnvio, setErroEnvio] = useState<string | null>(null);
   return (
     <div className="flex flex-col">
       <span className="label-caps mb-2">{view}</span>
@@ -220,13 +224,32 @@ function ViewSlot({
        */}
       <button
         type="button"
-        disabled
-        title="O envio depende do storage, que ainda não está conectado nesta fase."
-        className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-b-2xl border border-border bg-secondary/50 px-3 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/70"
+        disabled={enviando}
+        onClick={() => {
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = ACCEPT_IMAGEM;
+          input.onchange = async () => {
+            const f = input.files?.[0];
+            if (!f) return;
+            setEnviando(true);
+            setErroEnvio(null);
+            try {
+              onChange(await enviarImagem(f));
+            } catch (e) {
+              setErroEnvio((e as Error).message);
+            } finally {
+              setEnviando(false);
+            }
+          };
+          input.click();
+        }}
+        className="flex w-full items-center justify-center gap-2 rounded-b-2xl border border-border bg-secondary/50 px-3 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-foreground transition hover:bg-secondary disabled:opacity-60"
       >
         <Upload className="size-3.5" aria-hidden />
-        Enviar PNG transparente
+        {enviando ? 'Enviando…' : 'Enviar PNG transparente'}
       </button>
+      {erroEnvio ? <p className="mt-1 text-[11px] text-danger">{erroEnvio}</p> : null}
 
       <Field className="mt-2">
         <Input

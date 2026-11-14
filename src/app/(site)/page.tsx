@@ -21,11 +21,7 @@ import {
 import { listProducts } from '@/lib/produtos/data';
 import type { Product } from '@/lib/produtos/types';
 
-export const metadata: Metadata = {
-  title: 'Closet Lunar — moda fitness feminina',
-  description:
-    'Moda fitness e streetwear feminino. Conforto, estilo e performance em peças pensadas para o seu movimento.',
-};
+export const metadata: Metadata = {};
 
 /**
  * A HOME — a unica tela do site que os 14 prints cobrem.
@@ -109,6 +105,14 @@ export default async function HomePage() {
     na vitrine com o selo, e nao desaparece — que e o que o original faz.
   */
   const visiveis = produtos.filter((p) => p.status === 'active');
+  const capas: Record<string, { imagem: string | null; quantidade: number }> = {};
+  for (const p of visiveis) {
+    if (!p.categoryId) continue;
+    const c = (capas[p.categoryId] ??= { imagem: null, quantidade: 0 });
+    c.quantidade += 1;
+    c.imagem ??= p.images[0]?.url ?? null;
+  }
+  const novidadesCapa = [...visiveis].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]?.images[1]?.url ?? null;
 
   const destaques = visiveis.filter((p) => p.featured);
   const estoqueBaixo = visiveis.filter((p) => p.stock > 0 && p.stock <= 3);
@@ -123,7 +127,7 @@ export default async function HomePage() {
     <>
       <Hero slides={slides} />
       <BenefitsBar benefits={beneficios} />
-      <CategoriesRow categories={categorias} />
+      <CategoriesRow categories={categorias} capas={capas} novidadesImagem={novidadesCapa} />
 
       <ProductCarousel
         eyebrow="Best Sellers"

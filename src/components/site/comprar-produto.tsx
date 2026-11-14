@@ -2,7 +2,7 @@
 
 import { Check, MessageCircle } from 'lucide-react';
 import { useState } from 'react';
-import { useStoreWhatsApp, whatsappLinkFor } from '@/lib/site/whatsapp';
+import { mensagemDoGatilho, useContatoLoja, whatsappLinkFor } from '@/lib/site/whatsapp';
 import { useSacola } from '@/lib/site/carrinho';
 import { effectivePrice } from '@/lib/produtos/metrics';
 import type { Product } from '@/lib/produtos/types';
@@ -34,7 +34,8 @@ import { formatBRL } from '@/lib/utils';
  */
 export function ComprarProduto({ product }: { product: Product }) {
   const sacola = useSacola();
-  const whatsapp = useStoreWhatsApp();
+  const contato = useContatoLoja();
+  const whatsapp = contato.telefone;
 
   const umaCor = product.colors.length === 1 ? product.colors[0].name : '';
   const [tamanho, setTamanho] = useState(product.sizes.length === 1 ? product.sizes[0] : '');
@@ -175,7 +176,12 @@ export function ComprarProduto({ product }: { product: Product }) {
                   : 'ADICIONAR AO CARRINHO'}
         </button>
         <a
-          href={whatsappLinkFor(whatsapp, textoWhats)}
+          href={whatsappLinkFor(
+            whatsapp,
+            mensagemDoGatilho(contato.modelos, 'product_query', 'Olá! Vim pelo site da Closet Lunar e tenho uma dúvida sobre este produto.', { produto: product.name }) +
+              '\n' +
+              textoWhats.split('\n').slice(1).join('\n'),
+          )}
           aria-disabled={!whatsapp}
           target="_blank"
           rel="noopener noreferrer"
