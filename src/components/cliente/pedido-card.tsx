@@ -141,6 +141,11 @@ export function PedidoCard({ pedido, aberto, onAlternar }: PedidoCardProps) {
               <Truck className="size-3" aria-hidden /> {pedido.frete}
             </p>
           )}
+          {(pedido.status === 'pago' || pedido.status === 'enviado' || pedido.status === 'separacao') && /Entrega Closet|Retirar/.test(pedido.frete ?? '') ? (
+            <a href={`/pedido/${pedido.id}/rastreio`} onClick={(e) => e.stopPropagation()} className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium underline">
+              Acompanhar entrega ao vivo
+            </a>
+          ) : null}
         </div>
 
         {/*

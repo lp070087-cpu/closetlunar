@@ -4,6 +4,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Ruler, X } from 'lucide-react';
+import { Avatar360, type VistasAvatar } from '@/components/ui/avatar-360';
+import { getAvatar } from '@/lib/provador/data';
 
 type Medidas = {
   height: string;
@@ -36,8 +38,22 @@ export function AvatarMedidasModal({
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
-  const [imagemFalhou, setImagemFalhou] = useState(false);
+  const [vistas, setVistas] = useState<VistasAvatar>({ frente: '/site/avatar-provador.png' });
   closeRef.current = onClose;
+
+  useEffect(() => {
+    getAvatar()
+      .then(({ data }) => {
+        const url = (k: string) => data.slots.find((s) => s.key === k)?.url || null;
+        setVistas({
+          frente: url('frente') || '/site/avatar-provador.png',
+          direita: url('direita'),
+          costas: url('costas'),
+          esquerda: url('esquerda'),
+        });
+      })
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     const anterior = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -96,15 +112,8 @@ export function AvatarMedidasModal({
           <X className="size-5" />
         </button>
 
-        <div className="flex min-h-[240px] items-center justify-center bg-secondary p-6 md:min-h-[520px]">
-          {imagemFalhou ? <p role="status" className="text-sm text-muted-foreground">Imagem ilustrativa indisponível. Suas medidas continuam abaixo.</p> : (
-          <img
-            src="/site/avatar-provador.png"
-            alt="Avatar ilustrativo Closet Lunnar"
-            onError={() => setImagemFalhou(true)}
-            className="max-h-[35dvh] w-full object-contain md:max-h-[470px]"
-          />
-          )}
+        <div className="flex min-h-[300px] flex-col items-center justify-center bg-gradient-to-b from-secondary to-background p-4 md:min-h-[560px] md:p-6">
+          <Avatar360 vistas={vistas} alt="Avatar Closet Lunar" className="flex h-[42dvh] w-full flex-col md:h-[480px]" />
         </div>
 
         <div className="flex flex-col justify-center p-6 sm:p-10">
@@ -122,7 +131,7 @@ export function AvatarMedidasModal({
 
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
             Visualize as medidas preenchidas no seu perfil.
-            Esta é uma prévia ilustrativa, não uma simulação 3D.
+            Arraste o avatar para girar e ver de todos os ângulos.
           </p>
 
           <div className="mt-7 grid grid-cols-2 gap-3">

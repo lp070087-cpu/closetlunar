@@ -124,8 +124,14 @@ export function StatusPagamento({
           Recebemos seu pagamento e já estamos separando suas peças. Você vai receber o código de rastreio assim que o
           pedido for postado.
         </p>
+        <Link
+          href={`/pedido/${pedidoId}/rastreio`}
+          className="mt-6 inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-xs uppercase tracking-[0.16em] text-background"
+        >
+          Acompanhar entrega
+        </Link>
         {receiptUrl ? (
-          <a href={receiptUrl} target="_blank" rel="noreferrer" className="mt-4 inline-block text-xs underline">
+          <a href={receiptUrl} target="_blank" rel="noreferrer" className="mt-4 block text-xs underline">
             Ver comprovante
           </a>
         ) : null}

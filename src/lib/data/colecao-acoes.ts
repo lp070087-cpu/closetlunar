@@ -30,6 +30,7 @@ const PUBLICAS = new Set([
   'fidelidade:recompensas',
   'fidelidade:niveis',
   'whatsapp:config',
+  'provador:avatar',
 ]);
 
 const PRIVADAS = new Set([
@@ -43,7 +44,6 @@ const PRIVADAS = new Set([
   'carrinho:lista',
   'financeiro:custos',
   'abrir-loja:checklist',
-  'provador:avatar',
   'provador:pecas',
   'provador:sugestoes',
   'provador:ia',

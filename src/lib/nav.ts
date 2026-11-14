@@ -1,4 +1,5 @@
 import {
+  Bike,
   ClipboardCheck,
   FileText,
   Heart,
@@ -84,6 +85,13 @@ export const NAV_GROUPS: AdminNavGroup[] = [
         icon: ShoppingBag,
         roles: ['SUPER_ADMIN', 'ADMIN', 'ATENDIMENTO'],
         description: 'Acompanhe, separe e despache os pedidos da loja.',
+      },
+      {
+        slug: 'entregas',
+        label: 'Entregas',
+        icon: Bike,
+        roles: ['SUPER_ADMIN', 'ADMIN', 'ATENDIMENTO'],
+        description: 'Link do entregador e rastreio da moto em tempo real.',
       },
       {
         slug: 'carrinho-abandonado',
