@@ -56,9 +56,10 @@ export function MapaEntrega({
         .map(caixa.current, { zoomControl: true, attributionControl: true })
         .setView([centro.lat, centro.lng], 15);
       leaflet
-        .tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '&copy; OpenStreetMap',
+        .tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+          maxZoom: 20,
+          subdomains: 'abcd',
+          attribution: '&copy; OpenStreetMap &copy; CARTO',
         })
         .addTo(mapa.current);
       linha.current = leaflet.polyline([], { color: '#1d1715', weight: 4, opacity: 0.55, dashArray: '6 8' }).addTo(mapa.current);
