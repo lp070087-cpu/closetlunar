@@ -1,6 +1,9 @@
 import { SiteHeader } from '@/components/site/site-header';
 
-/** The account uses the same working navigation and search as the storefront. */
-export function StoreHeader() {
-  return <SiteHeader cartHref="/checkout" />;
+/**
+ * Cabecalho da area da cliente: o MESMO do site. No celular, o menu (☰) traz
+ * primeiro as secoes da conta e o "Sair" — um menu so, sem menu extra no meio da tela.
+ */
+export function StoreHeader({ onSair }: { onSair?: () => void } = {}) {
+  return <SiteHeader cartHref="/checkout" onSair={onSair} />;
 }

@@ -3,10 +3,8 @@
 import { useEffect, useState } from 'react';
 import { Package, Trophy, Users, Wallet } from 'lucide-react';
 import { getResumo } from '@/lib/cliente/data';
-import { CONTA_ATALHOS } from '@/lib/cliente/nav';
 import { formatBRL } from '@/lib/utils';
 import type { ResumoCliente } from '@/lib/cliente/types';
-import { AccountQuickLink } from './account-quick-link';
 import { ClubeNivelCard } from './clube-nivel-card';
 import { CuponsAtivosCard } from './cupons-ativos-card';
 import { Stat } from '@/components/ui/stat';
@@ -82,20 +80,6 @@ export function DashboardView() {
         ) : (
           <ClubeNivelAusente />
         )}
-      </div>
-
-      {/* 2. Os oito atalhos */}
-      <div className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2 md:grid-cols-4">
-        {CONTA_ATALHOS.map((atalho) => (
-          <AccountQuickLink
-            key={atalho.href}
-            href={atalho.href}
-            icon={atalho.icon}
-            label={atalho.label}
-            count={atalho.href === '/conta/favoritos' ? resumo.favoritos : undefined}
-            mostraContagem={atalho.mostraContagem}
-          />
-        ))}
       </div>
 
       {/* 3. Ultimo pedido + cupons */}

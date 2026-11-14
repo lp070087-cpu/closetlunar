@@ -185,3 +185,62 @@ export async function favoritosAgregadosAcao(): Promise<
     }))
     .sort((a, b) => b.count - a.count);
 }
+
+/* ------------------------------ dashboard admin ------------------------------ */
+
+export interface PainelAdmin {
+  produtos: number;
+  pedidosHoje: number;
+  receitaMes: number;
+  lucroMes: number;
+  margem: number;
+  leads: number;
+  estoqueBaixo: { name: string; stock: number }[];
+  maisVendidos: { name: string; qtd: number }[];
+  maisFavoritados: { name: string; count: number }[];
+  aguardandoEnvio: number;
+}
+
+export async function painelAdminAcao(): Promise<PainelAdmin | null> {
+  if (!temBanco()) return null;
+  if (!(await ehAdmin())) return null;
+  const c = db()!;
+  const agora = new Date();
+  const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
+  const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+  const sessenta = new Date(agora.getTime() - 60 * 86400000);
+  const [produtos, pedidosHoje, doMes, recentes, leads, baixos, aguardando, favs] = await Promise.all([
+    c.product.count({ where: { status: 'active' } }),
+    c.order.count({ where: { paymentStatus: 'pago', placedAt: { gte: hoje } } }),
+    c.order.findMany({ where: { paymentStatus: 'pago', placedAt: { gte: inicioMes } }, include: { items: true } }),
+    c.order.findMany({ where: { paymentStatus: 'pago', placedAt: { gte: sessenta } }, include: { items: true } }),
+    c.setting.findUnique({ where: { key: 'modulo:crm:leads' } }),
+    c.product.findMany({ where: { status: 'active', stock: { lte: 5 } }, select: { name: true, stock: true }, orderBy: { stock: 'asc' }, take: 12 }),
+    c.order.count({ where: { paymentStatus: 'pago', status: { in: ['pago', 'separacao'] } } }),
+    favoritosAgregadosAcao(),
+  ]);
+  const custos = new Map(
+    (await c.product.findMany({ select: { id: true, costPrice: true } })).map((p) => [p.id, Number(p.costPrice)]),
+  );
+  let receita = 0;
+  let custo = 0;
+  for (const p of doMes) {
+    receita += Number(p.total);
+    for (const i of p.items) custo += (custos.get(i.productId ?? '') ?? 0) * i.quantity;
+  }
+  const vendidos = new Map<string, number>();
+  for (const p of recentes) for (const i of p.items) vendidos.set(i.productName, (vendidos.get(i.productName) ?? 0) + i.quantity);
+  const lucro = receita - custo;
+  return {
+    produtos,
+    pedidosHoje,
+    receitaMes: Math.round(receita * 100) / 100,
+    lucroMes: Math.round(lucro * 100) / 100,
+    margem: receita > 0 ? Math.round((lucro / receita) * 100) : 0,
+    leads: Array.isArray(leads?.value) ? (leads!.value as unknown[]).length : 0,
+    estoqueBaixo: baixos,
+    maisVendidos: [...vendidos.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([name, qtd]) => ({ name, qtd })),
+    maisFavoritados: (favs ?? []).slice(0, 6).map((f) => ({ name: f.name, count: f.count })),
+    aguardandoEnvio: aguardando,
+  };
+}

@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Heart, Search, ShoppingBag, User, X } from 'lucide-react';
+import { Heart, LogOut, Search, ShoppingBag, User, X } from 'lucide-react';
+import { NAV_ITEMS, isActiveSlug } from '@/lib/cliente/nav';
 import { BotaoSacola } from './botao-sacola';
 import { clientHref } from '@/lib/cliente/nav';
 
@@ -78,7 +79,9 @@ const MENU = [
   { label: 'Todos os produtos', href: '/buscar' },
 ] as const;
 
-export function SiteHeader({ cartHref }: { cartHref?: string } = {}) {
+export function SiteHeader({ cartHref, onSair }: { cartHref?: string; onSair?: () => void } = {}) {
+  /** Dentro de /conta o menu do celular mostra primeiro as secoes da conta (um menu so). */
+  const naConta = !!onSair;
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const menu = useRef<HTMLDialogElement>(null);
@@ -221,10 +224,45 @@ export function SiteHeader({ cartHref }: { cartHref?: string } = {}) {
             <input type="search" name="q" aria-label="Buscar no menu" placeholder="Buscar produtos..." className="focus-ring min-w-0 flex-1 rounded-full border border-border bg-secondary px-4 py-3 text-sm" />
             <button type="submit" aria-label="Buscar" className="focus-ring rounded-full border border-border p-3"><Search className="size-5" aria-hidden /></button>
           </form>
-          <nav aria-label="Categorias no celular" className="flex flex-col gap-1">
-            {MENU.map((item) => <Link key={item.href} href={item.href} onClick={() => setMenuOpen(false)} aria-current={pathname === item.href ? 'page' : undefined} className="focus-ring rounded-xl px-4 py-3 text-sm hover:bg-secondary aria-[current=page]:bg-secondary">{item.label}</Link>)}
+          {naConta ? (
+            <nav aria-label="Minha conta" className="mb-6">
+              <p className="mb-2 px-4 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Minha conta</p>
+              <div className="flex flex-col gap-0.5">
+                {NAV_ITEMS.map((item) => {
+                  const Icone = item.icon;
+                  const ativo = isActiveSlug(pathname, item.slug);
+                  return (
+                    <Link
+                      key={item.slug}
+                      href={clientHref(item.slug)}
+                      onClick={() => setMenuOpen(false)}
+                      aria-current={ativo ? 'page' : undefined}
+                      className={`focus-ring flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm transition-colors ${ativo ? 'bg-foreground text-background' : 'hover:bg-secondary'}`}
+                    >
+                      <Icone className="size-4 shrink-0" aria-hidden />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onSair?.();
+                  }}
+                  className="focus-ring flex items-center gap-3 rounded-xl px-4 py-2.5 text-left text-sm text-danger hover:bg-secondary"
+                >
+                  <LogOut className="size-4 shrink-0" aria-hidden />
+                  Sair da conta
+                </button>
+              </div>
+            </nav>
+          ) : null}
+          <nav aria-label="Categorias no celular" className="flex flex-col gap-0.5">
+            {naConta ? <p className="mb-2 px-4 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Loja</p> : null}
+            {MENU.map((item) => <Link key={item.href} href={item.href} onClick={() => setMenuOpen(false)} aria-current={pathname === item.href ? 'page' : undefined} className="focus-ring rounded-xl px-4 py-2.5 text-sm hover:bg-secondary aria-[current=page]:bg-secondary">{item.label}</Link>)}
           </nav>
-          <Link href={clientHref('')} onClick={() => setMenuOpen(false)} className="focus-ring mt-6 flex items-center gap-3 rounded-xl border border-border px-4 py-3 text-sm"><User className="size-5" aria-hidden />Minha Conta</Link>
+          {naConta ? null : <Link href={clientHref('')} onClick={() => setMenuOpen(false)} className="focus-ring mt-6 flex items-center gap-3 rounded-xl border border-border px-4 py-3 text-sm"><User className="size-5" aria-hidden />Minha Conta</Link>}
         </div>
       </dialog>
     </>

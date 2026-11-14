@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { sair as encerrarSessao } from '@/lib/auth/acoes';
 import { LogOut } from 'lucide-react';
 import { SIGN_OUT_LABEL } from '@/lib/cliente/nav';
-import { AccountMobileNav } from './account-mobile-nav';
+import { NAV_ITEMS, isActiveSlug } from '@/lib/cliente/nav';
 import { AccountSidebar } from './account-sidebar';
 import { CustomerLogin } from './customer-login';
 import { StoreFooter } from './store-footer';
@@ -131,6 +131,7 @@ export function AccountShell({ saudacao, children, demo = true }: AccountShellPr
   const router = useRouter();
   const [dentro, setDentro] = useState(true);
   const [erroSaida, setErroSaida] = useState<string | null>(null);
+  const secaoAtual = NAV_ITEMS.find((item) => isActiveSlug(pathname, item.slug))?.label ?? null;
 
   /**
    * ================== O PORTAO: A ENTRADA VIVE AQUI, E NAO NUMA ROTA ==================
@@ -217,7 +218,7 @@ export function AccountShell({ saudacao, children, demo = true }: AccountShellPr
       alcancar o admin. Hoje nao ha nenhuma.
     */
     <div data-cliente-area className="flex min-h-screen flex-col bg-background">
-      <StoreHeader />
+      <StoreHeader onSair={sair} />
       {demo ? (
         <p role="status" className="mx-3 mt-4 rounded-xl border border-border px-4 py-3 text-sm text-muted-foreground">
           Demonstração de desenvolvimento: dados de exemplo, sem persistência.
@@ -237,12 +238,12 @@ export function AccountShell({ saudacao, children, demo = true }: AccountShellPr
         `clip` recorta igual e NAO cria container de rolagem. E a conversao
         correta da intencao, e nao um desvio dela.
       */}
-      <div className="mx-auto w-full max-w-full flex-1 overflow-x-clip px-3 py-6 sm:px-4 md:py-14">
+      <div className="container mx-auto w-full max-w-6xl flex-1 overflow-x-clip px-4 py-6 md:px-8 md:py-12">
         {/* Cabecalho da area: `MINHA CONTA` + `Ola, ...` */}
-        <div className="mb-6 flex flex-col justify-between gap-4 md:mb-10 md:flex-row md:items-end">
+        <div className="mb-5 flex items-end justify-between gap-4 md:mb-10">
           <div className="min-w-0">
             <p className="mb-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-              Minha Conta
+              Minha Conta{secaoAtual ? <span className="lg:hidden"> · {secaoAtual}</span> : null}
             </p>
             {/*
               `truncate` vem do original, e o print justifica: o e-mail e longo
@@ -261,15 +262,15 @@ export function AccountShell({ saudacao, children, demo = true }: AccountShellPr
           <button
             type="button"
             onClick={sair}
-            className="focus-ring flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-background px-6 py-3 text-sm font-medium text-danger shadow-soft lg:hidden"
+            aria-label={SIGN_OUT_LABEL}
+            className="focus-ring inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-medium text-danger lg:hidden"
           >
-            <LogOut className="size-4" aria-hidden />
-            {SIGN_OUT_LABEL}
+            <LogOut className="size-3.5" aria-hidden />
+            Sair
           </button>
         </div>
 
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10">
-          <AccountMobileNav pathname={pathname} />
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10">
 
           <aside className="hidden lg:block">
             <AccountSidebar pathname={pathname} onSignOut={sair} />
@@ -282,7 +283,7 @@ export function AccountShell({ saudacao, children, demo = true }: AccountShellPr
               original. `overflow-hidden` garante que uma imagem ou tabela larga
               nao escape do canto arredondado.
             */}
-            <div className="overflow-hidden rounded-2xl border border-border bg-background p-4 shadow-sm sm:p-6 lg:rounded-[2.5rem] lg:p-10 lg:shadow-elegant">
+            <div className="lg:overflow-hidden lg:rounded-[2.5rem] lg:border lg:border-border lg:bg-background lg:p-10 lg:shadow-elegant">
               {/*
                 O PROVEDOR DO PORTAO envolve o painel, e nao a casca inteira: o
                 estado que ele distribui (`sair`) so interessa a quem esta DENTRO

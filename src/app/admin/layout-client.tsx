@@ -24,9 +24,11 @@ export function AdminLayoutClient({ children, email, demo = true }: { children: 
       email={email ?? session.email}
       role={session.roles[0]}
     >
-      <p role="status" className="mb-4 rounded-xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
-        {demo ? 'Demonstração de desenvolvimento: dados de exemplo, sem persistência.' : 'Acesso administrativo autenticado. Os módulos operacionais ainda exibem dados demonstrativos; não use os valores como vendas, estoque ou clientes reais.'}
-      </p>
+      {demo ? (
+        <p role="status" className="mb-4 rounded-xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
+          Demonstração de desenvolvimento: dados de exemplo, sem persistência.
+        </p>
+      ) : null}
       {children}
     </AdminShell>
   );
